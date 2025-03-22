@@ -1,0 +1,498 @@
+---
+title: "ploidyPeaks: Peak detection and statistical analysis of karyotypic variation from flow cytometry data"
+subtitle: "Margot Henry, Caitlin Kostna, Leanne Von Giese, and Aleeza Gerstein"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{ploidyPeaks}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+knitr::opts_chunk$set(echo = TRUE)
+Sys.setenv(AZURE_AUTH_USE_FILE = "FALSE")
+
+library(PloidyPeaks)
+library(flowCore)
+library(here)
+library(AzureStor)
+library(AzureRMR)
+library(BiocFileCache)
+```
+
+# Introduction
+*ploidyPeaks* was developed to quantify genome size within populations, including populations that contain multiple subpopulations. The package works on fluorescence intensity data from populations greater than 5000 that contain cells at all phases of the cell cycle, i.e., $G_0/G_1$ cells prior to DNA replication, S phase cells undergoing replication, and $G_2/M$  cells that have doubled their DNA but not yet divided. The package builds on the Dean-Jett-Fox (DJF) cell cycle algorithm (as implemented in Flow-Jo) which assumes that $G_0/G_1$ and $G_2/M$ cell clusters are Gaussian distributed, while S phase cells are Gaussian distributed multiplied by a second order polynomial.
+
+The package uses the Bioconductor package *flowCore* to read in and gate samples, followed by a series of automated peak detection algorithms to identify all possible $G_0/G_1$ and $G_2/M$ peaks, and then identifies and quantifies sub-populations, i.e., pairs of matching $G_0/G_1$ and $G_2/M$ peaks. *ploidyPeaks* also provides the residual standard error (RSE) for each identified population as a way to assess model fit. 
+
+The workflow is separated into five parts, with built-in visualization options provided throughout: 1) gating, 2) peak detection, 3) confidence term, 4) dataset output, and 5) outlier detection.
+
+## Existing Works
+FlowJo Software is the leading platform for single-cell flow cytometry analysis. It can quickly and effectively interpret data using many features. Most functions require immense user-input in order to work effectively. The user must also purchase the software along with an annual license. As well, FlowJo has a variety of visualization options that need to be added separately when creating histograms. Multiple samples cannot be plotted at the same time, and features need to be edited in each individual graph. *ploidyPeaks* provides users with a simple, open-source software option to quantify genome size and genome subpopulations from flow cytometry data. Its visualization abilities alleviate the stress and decision-making from the user by automatically applying features to all graphs (when using the grid functionality). This is also less time-consuming, allowing the user to use their time plotting more samples, or performing an analysis on their dataset. Overall, there is minimal input and coding experience required from the user to accurately analyze their data when using *ploidyPeaks*, thus, making it a reasonable substitute for FlowJo. 
+
+# Installation
+## Stable Release
+*ploidyPeaks* is available on Bioconductor. To install the most recent version of the package, run the following code chunk:
+```{r, warning = FALSE, eval=FALSE, echo=TRUE}
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install("PloidyPeaks")
+```
+
+You only need to install the package once, other than updating it when new versions are released. Once you've installed it, you can load it into your R session:
+```{r, warning = FALSE, eval=TRUE, echo=TRUE}
+library(PloidyPeaks)
+```
+
+## Development Release
+Bioconductor only houses stable packages so updates are only released twice a year. If you require the latest version of *ploidyPeaks* you may prefer to use the developmental version located on GitHub. To install the developmental version, first ensure you download the package from Bioconductor. You'll also need the *devtools* package if you don't already have it.
+```{r, warning = FALSE, eval=FALSE, echo=TRUE}
+install.packages("devtools", dependencies = TRUE)
+```
+
+Now you can use *devtools* to import the latest version of *ploidyPeaks*.
+```{r, warning = FALSE, eval=FALSE, echo=TRUE}
+library(devtools)
+install_github("MicroStatsLab/PloidyPeaks", dependencies = TRUE,
+               build_vignettes = TRUE)
+```
+
+## Sample Files
+For this vignette (and examples in each function), we will be using raw fluorescence intensity data stored in an Azure Data Lake. To access this data, we need to install a few packages. 
+```{r, warning = FALSE, eval=FALSE, echo=TRUE}
+install.packages("AzureStor")
+install.packages("AzureRMR")
+
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install("BiocFileCache")
+
+library(AzureStor)
+library(AzureRMR)
+library(BiocFileCache)
+```
+
+The following will download the data files we need from the Azure Data Lake. Note: when you run this in your own session of R, you will be prompted to grant permission to R to download the files to your computer. 
+```{r, warning = FALSE, eval=TRUE, echo=TRUE}
+library(BiocFileCache)
+original_wd <- getwd()
+cachePath <- tempfile(pattern = "bioc_cache_")
+dir.create(cachePath, showWarnings = FALSE)
+bfc <- BiocFileCache(cachePath, ask = FALSE)
+on.exit({
+   if (normalizePath(getwd()) != normalizePath(original_wd)) {
+     setwd(original_wd) 
+   }
+}, add = TRUE)
+rawFolder <- file.path(cachePath, "fcs_data")
+dir.create(rawFolder, showWarnings = FALSE, recursive = TRUE)
+rawUrls <- c(
+    "https://ploidypeaksvignette.blob.core.windows.net/ploidypeaksvignettedata/raw_data/A1_1.fcs",
+    "https://ploidypeaksvignette.blob.core.windows.net/ploidypeaksvignettedata/raw_data/A1_2.fcs",
+    "https://ploidypeaksvignette.blob.core.windows.net/ploidypeaksvignettedata/raw_data/A1_3.fcs",
+    "https://ploidypeaksvignette.blob.core.windows.net/ploidypeaksvignettedata/raw_data/A1_4.fcs",
+    "https://ploidypeaksvignette.blob.core.windows.net/ploidypeaksvignettedata/raw_data/A1_5.fcs",
+    "https://ploidypeaksvignette.blob.core.windows.net/ploidypeaksvignettedata/raw_data/A1_6.fcs"
+)
+downloadedFiles <- character(length(rawUrls))
+for (i in seq_along(rawUrls)) {
+  rid <- bfcquery(bfc, rawUrls[i])$rid
+  if (length(rid) == 0){
+    rid <- bfcadd(bfc, paste0("raw_data_", i), rawUrls[i])
+  }
+  fpath <- bfcrpath(bfc, rawUrls[i])
+  newFPath <- file.path(rawFolder, basename(rawUrls[i]))  
+  file.copy(fpath, newFPath, overwrite = TRUE)
+  downloadedFiles[i] <- newFPath
+}
+gatedFolder <- file.path(cachePath, "fcs_data")
+dir.create(gatedFolder, showWarnings = FALSE, recursive = TRUE)
+gatedUrls <- c(
+    "https://ploidypeaksvignette.blob.core.windows.net/ploidypeaksvignettedata/gated_data/A1_1.fcs",
+    "https://ploidypeaksvignette.blob.core.windows.net/ploidypeaksvignettedata/gated_data/A1_2.fcs",
+    "https://ploidypeaksvignette.blob.core.windows.net/ploidypeaksvignettedata/gated_data/A1_3.fcs",
+    "https://ploidypeaksvignette.blob.core.windows.net/ploidypeaksvignettedata/gated_data/A1_4.fcs",
+    "https://ploidypeaksvignette.blob.core.windows.net/ploidypeaksvignettedata/gated_data/A1_5.fcs",
+    "https://ploidypeaksvignette.blob.core.windows.net/ploidypeaksvignettedata/gated_data/A1_6.fcs"
+)
+downloadedFiles <- character(length(gatedUrls))
+for (i in seq_along(gatedUrls)) {
+  fpath <- bfcrpath(bfc, gatedUrls[i])
+  newFPath <- file.path(gatedFolder, basename(gatedUrls[i]))  
+  file.copy(fpath, newFPath, overwrite = TRUE)
+  downloadedFiles[i] <- newFPath
+}
+```
+
+# Implementation    
+The main functions of *ploidyPeaks* are:  
+
+* Read in the data and gate out debris
+
+  * `rectGateFlowFrame`: Read in one flow frame (i.e., single sample)  
+  * `rectGateFlowSet`:  Read in a flow set (i.e., group of samples)    
+  
+* Peak detection, subpopulation identification and calculation of residual standard error      
+
+  * `flowPeakDetection`: The main package function. Peaks from all subpopulations are identified, Dean-Jett-Fox (DJF) is applied to each to acquire mean peak intensities, the RSE is calculated for each subpopulation, and graphs and a data file are output. 
+  * `peakCorrection`: A function to force a specific number of peaks on a particular sample. Usually implemented after analyzing the output from `flowPeakDetection`.
+
+* Fluorescence intensity visualization  
+
+  * `flowLineGraph`: A function to visualize genome size histograms from one or multiple samples.  
+  * `massFlowGraph`: A function to visualize genome size histograms for a large number of samples.
+
+* Outlier detection
+
+  * `RSEOutlierDetection`: A function that analyzes residual standard error values in the output from `flowPeakDetection`. A histogram of RSE values and a PDF of determined outlier samples is saved. A column is added to the provided output file to indicate whether or not a sample was considered as an outlier. 
+
+## Reading and Gating Data
+Two gating functions are available: 
+`rectGateFlowFrame()` reads in and applies a gate to a single sample (i.e., one *.fcs* file), and `rectGateFlowSet()` applies a gate to a whole data set (i.e, many *.fcs* files saved in a folder together). 
+
+The typical workflow is to use `rectGateFlowFrame()` on a representative set of samples to determine correct gating parameters before applying them to all samples with `rectGateFlowSet()`. Both functions use `rectGateFlowSet()` and `Subset()` from the *flowCore* package to create rectangular boundaries and subset the cells within the boundary. `write.FCS()` is used to save the gated data as an *.fcs* file in a folder that is created called *gated_data* for downstream analysis.  The gate is set to default values of  $xMinValue = 10000$, $xMaxValue = 900000$, $yMinValue = 10000$ and $yMaxValue = 900000$, gating on variables "SSC-A" and fluorescence channel (default "FL1-A"). Depending on the flow cytometer, the fluorescence channel name might be different, and the user should assess whether the input values are appropriate. The user has the option to input their own parameters for gating and their own rectangular boundaries. The goal is to gate out debris while keeping the majority of the cell population of interest. This is the main place the user is required to input information to customize the settings to fit their data set.
+
+The default is to create and save a visualization for every sample to show the gate that was applied. The `autoplot()` function from the *ggcyto* package is used to visualize a) a bivariate density plot of fluorescence intensity by SSC-A for all cells in the flow frame, and b) a bivariate density plot of fluorescence intensity by SSC-A for only the cells that are within the specified gate. `geom_gate()` is used to depict the gate as a red rectangle on the first plot. The two graphs will automatically appear and are saved by default to a folder in the user's working directory called *plotted_data* (to display but not save graphs, set $savePlot = FALSE$).
+
+```{r, warning = FALSE, eval=FALSE, echo=TRUE}
+rectGateFlowFrame(
+  rawDir = NA,
+  flowName = "Sample1",
+  xVariable = "FL1-A",
+  yVariable = "SSC-A",
+  xMinValue = 30000,
+  xMaxValue = 700000,
+  yMinValue = 30000,
+  yMaxValue = 750000,
+  savePlot = TRUE
+)
+```  
+
+The proportion of cells that have been gated out for each sample is saved as *experimentName_percentOfCellsGatedOut.csv* (where experimentName is the parent folder to your raw data).
+
+```{r, echo=FALSE, fig.pos = "H", out.width="80%",fig.align="center"}
+knitr::include_graphics(here("vignettes/images/V2_gated2.png"))
+```   
+
+<b>
+Figure 1: Example of rectGateFlowFrame() visualization.
+</b>  
+
+## Peak Detection, Subpopulation Identification, and Residual Standard Error Calculation   
+### Peak Detection  
+One goal of the package is to identify the number of subpopulations in each sample, and the corresponding $G_1$ and $G_2$ peak pair from each. This is implemented in the `flowPeakDetection()` function.
+
+Peak detection is used to identify local maxima in the fluorescence intensity data. A local maximum is defined as the tallest point in a given interval. Peaks that are identified can correspond to both true $G_1$ and $G_2$ populations, as well as peaks that arise in the data due to stochastic spikes or abnormalities caused by external factors. `flowPeakDetection()` consists of five sequential peak algorithm functions (`peakAlgorithm1()` to `peakAlgorithm5()`. The function `detect_localmaxima()` in the package *scorepeak* is used in each algorithm. The functions differ in the degree to which they smooth data, as well as the allowable distance between matching $G_1$ and $G_2$ peaks. 
+
+`peakAlgorithm1()` tests whether samples are consistent with two peaks comprising a single populations (i.e., a single $G_1$ and $G_2$ peak pairing, where the $G_2$ peak is at approximately 2x the mean fluorescence intensity of the $G_1$ peak). The fluorescence intensity data visualized as a histogram, is smoothed to a level of *k* = 11 and all peaks are identified. The leftmost peak (lowest fluorescence intensity) is assumed to be the $G_1$ peak, and a $G_2$ peak match is identified as the tallest peak between $1.75 \times G_1$ peak and $2.2 \times G_1$ peak. The distance between the $G_1$ and $G_2$ peaks is calculated and a boundary is set at the $G_2$ peak plus half this distance. The percent of cells outside the boundary is calculated. If it is within the specified threshold, the population is marked as a single population, otherwise it is passed to the next algorithm. The default threshold is set at 8.5%, which was identified through testing on multiple samples with a known number of peaks, though the user can select their own threshold by changing the `singleThreshold` parameter (i.e., `singleThreshold` = 10). The proportion of cells to the left of the $G_1$ peak is also checked to ensure that the peak was correctly identified and not mistaken for a $G_2$ peak. 
+
+### Subpopulation Identification  
+If the percent of cells outside the boundary exceeds the threshold, the population is flagged as likely containing multiple populations and is passed to `peakAlgorithm2()`, which assumes there are multiple subpopulations and seeks to identify the cells associated with each $G_1$ and $G_2$ pairs. The algorithm repeats the peak detection step with a smoothing factor of 5, which maintains more granular data (i.e., more peaks). If the total number of identified peaks is even, this indicates that each subpopulation will have unique $G_1$ and $G_2$ peaks, and the number of subpopulations is the total number of peaks divided by two. Conversely, if the total number of peaks is odd, this indicates that the $G_1$ of one subpopulation is the same as the $G_2$ of another subpopulation. For example, in the case of a population that contains diploid (2n) and tetraploid (4n) subpopulations, the diploid $G_2$ peak is the same as the tetraploid $G_1$, and the number of subpopulations is the total number of peaks plus one divided by two. 
+
+The subpopulation pairing method we use builds off the Watson Pragmatic (WP) and the Dean-Jett-Fox (DJF) cell cycle algorithms. They both identify the tallest fluorescence intensity peak and assign that to be the $G_1$ mean. WP identifies the location of the highest point near $1.75 \times G_1$ mean to find the $G_2$ mean, while DJF identifies the location of the highest point near the $2 \times G_1$ mean to find the $G_2$ mean. We created the function `findPairs()` to match peaks when there are subpopulations. `findPairs()` assumes that each peak remaining after `findTruePeaks()` is a possible $G_1$ and will try to find their subpopulation pairing. The range for a matching $G_2$ peak from each possible $G_1$ peak is calculated by creating lower and upper bounds based of WP and DJF. We set the initial lower limit to $1.75 \times G_1$ peak and an upper limit of $2.2 \times G_1$ peak. For each possible $G_1$ peak, `findPairs()` looks at all peaks identified within the specified range; if there is more than one peak identified, it will assign the tallest of those identified peaks to be the associated $G_2$ peak. If there is no possible $G_2$ peak within the range, the algorithm will assume that this possible $G_1$ peak does not have a subpopulation pairing, and will be removed from the list of potential subpopulations at this time.
+
+```{r, echo=FALSE, fig.pos = "H", out.width="80%", fig.align="center"}
+knitr::include_graphics(here("vignettes/images/findPairs.png"))
+```    
+
+<b>
+Figure 2: Peak detection algorithm.
+</b> In A) The peak detection algorithm and `findTruePeaks()` identified four peaks located at x=170, 355, 490 and 675, which are marked by blue dots. B) Considering the first peak at $x = 170$ (red dot), `findPairs()` will calculate lower and upper bounds and look to see if a peak falls within those limits. For `peakAlgorithm2()` the lower bound is set at $1.75\times170 = 297.5$, and the upper bound is set at $2.2\times170 = 374$, which is represented as the red shaded area. The peak located at x = 355 falls within those limits, so `findPairs()` assigns these two peaks as a subpopulation pair.
+
+After the subpopulations have been identified, the number of cells associated with each subpopulation is determined. If the proportion of unused cells is large, the algorithm will assume some subpopulation peaks were not identified, and the sample will get passed to the next peak detection algorithm. 
+
+In addition to $G_1$ and $G_2$ peaks, doublet peaks may also be present in the data. Since the doublet peak does not belong to any subpopulation, doublets increase the number of unused cells and when there are large doublet populations the peak algorithm will fail (Figure 4). The helper function `doubletCheck()` is automatically run to identify potential doublet peaks in each sample. It looks for peaks around the $G_1+G_2$ range as well as the $G_2+G_2$ range. If there is a peak identified in that range, the sample will save the information on the location and height of the doublet. 
+
+There is no way to discriminate between the a $G_1+G_1$ doublet and a true $G_2$ peak. The $G_2+G_2$ doublet can be mistaken as the $G_2$ of a subpopulation and discriminating between these two types of peak is difficult. We have made some criteria for a subpopulation $G_2$ based on samples with known ploidy. If the sample identifies a subpopulation $G_2$ but that peak is smaller than the $G_1+G_2$ doublet, then it is classified as a $G_2+G_2$ doublet(Figure 4B). The parameter *maxDoubletHeight* in `flowPeakDetection()` can be adjusted by the user to determine whether specific peaks are classified as a doublet. *maxDoubletHeight* determines that threshold for a $G_2$ peak to be within a specified height of their $G_1$ peak.
+
+```{r, echo=FALSE, fig.pos = "H", out.width="80%", fig.align="center"}
+knitr::include_graphics(here("vignettes/images/doublets.jpeg"))
+```    
+
+<b>
+Figure 3: Identification of doublets.
+</b> A) Before specifying that there is a $G_1+G_2$ doublet peak, the sample would fail all peak detection branching points since the proportion of cells being used is 80%. After considering doublets, 92% of cells are considered accounted for. B) Before identifying the $G_1+G_2$ and the $G_2+G_2$ doublet, this sample had only 61% of cells used; once we included the doublet peaks, 97% of cells were accounted for.
+
+```{r, echo=FALSE, fig.pos = "H", out.width="80%", fig.align="center"}
+knitr::include_graphics(here("vignettes/images/cellProp.png"))
+```    
+
+<b>
+Figure 4: Further peak detection.
+</b> The left most panel is sample with two subpopulations. The blue dots represent the $G_1$ and $G_2$ mean of the first subpopulation, and the green dot represents the mean of the second subpopulation. The percent of cells being used in the subpopulation pairings is represented in the right panel in the shaded red area, while the area in white ate the cells not being used. *cellPerc* is calculated by the number of cells in the red area divided by the total number of cells $\times 100$.  
+
+### peakAlgorithm 2, 3, 4 and 5  
+Once all peaks are identified, the proportion of cells that were used is calculated ("*cellPerc*", Figure 5). If *cellPerc* is under 86%, that sample will be passed on to the next algorithm, `peakAlgorithm2()`. The *cellPerc* threshold was determined by examining control populations composed of known *Candida albicans* single populations; it can be adjusted by the user.
+
+Populations that do not fall within the threshold from `peakAlgorithm2()` are passed to `peakAlgorithm3()`. The interval where a $G_2$ peaks is looked for is widened to (1.7, 2.3). If the sample's *cellPerc* still does not pass the threshold of 86% in `peakAlgorithm3()`,then it gets passed on to `peakAlgorithm4()`, where the smoothing level is reduced to four. Samples that are flagged at the end of `peakAlgorithm4()` are annotated in the final data table to be investigated by the user for visual inspection, as there is less confidence in the identified peaks. They are passed on to the final function, `peakAlgorithm5()`, which has a smoothing level of three and the $G_1$ and $G_2$ peak interval is widened to (1.4, 2.5) in a final attempt to identify possible pairs. 
+
+```{r, echo=FALSE, fig.pos = "H", out.width="80%", fig.align="center"}
+knitr::include_graphics(here("vignettes/images/wrapper_workflow.png"))
+```     
+
+<b>
+Figure 5: flowPeakDetection() workflow.
+</b> All samples go through to `peakAlgorithm1()`, which uses a smoothing level of 11 and a $G_2$ bound of ($1.75\times G_1, 2.2\times G_1$). If the *popBoundary* falls within the set threshold, the sample is done being analyzed, otherwise it gets passed on to `peakAlgorithm2()`. The process in `peakAlgorithm2()` is similar, but uses more granular data (smoothing level of 5) and calculates *cellPerc*. If *cellPerc* exceeds the threshold it gets passed on to the `peakAlgorithm3()`. `peakAlgorithm3()` widens the bounds for $G_2$ to ($1.7 \times G_1, 2.3 \times G_1$), and `peakAlgorithm4()` uses a smoothing level of 4. `peakAlgorithm5()` uses the most granular data (smoothing level of 3) and the widest bounds for $G_2$ ($1.5 \times G_1, 2.5 \times G_1$).  
+
+```{r, echo=FALSE, fig.pos = "H", out.width="60%", fig.align="center"}
+knitr::include_graphics(here("vignettes/images/20220807_workflow.png"))
+```   
+
+<b>
+Figure 6: The workflow of the peakAlgorithm functions.
+</b> The existing functions are highlighted in purple, while we created the ones highlighted in blue. The data gets read into R using the existing *read.FCS()* function from *flowCore*. The data gets passed through the `hist()` function from base R to manipulate the raw data into the data that will be used for the peak detection algorithms. The data then gets smoothed using the `rollmean()` function from the *zoo* package in a function called `smoothData()`. We find the local maximums with *scorepeak*’s `detect_localmaxima()` and remove the ‘fake’ peaks with `findTruePeaks()`. For the samples’ that are identified as a possible multi-population will use `findPairs()` to identify possible subpopulations. Then the algorithm will find doublets (if any). Lastly, we find the percent of cells within a specific area (i.e., *popBoundary* and *cellPerc*), and if that area falls within the set threshold, the sample is done being analyzed otherwise it gets passed to the next algorithm. 
+
+### Confidence Term using Residual Standard Error (RSE)
+Following peak detection analysis, the Dean-Jett-Fox (DJF) cell cycle algorithm is applied to each sample using the identified peak means and heights (from each subpopulation, where appropriate) to find a residual standard error (RSE) using nonlinear least squares models. Three DJF models are run for each sample. The first model assumes each sample is a single population, the second adds doublet peaks (if identified) to the single population, and if appropriate, the third model fits each subpopulation identified by the algorithm in the process. The final RSE is the lowest of the fitted models. Users can use the RSE as a confidence term to see how well the algorithm performed and further investigate the samples with high RSE values.
+
+### Peak Correction
+Upon analyzing the output file from `flowPeakDetection()`, the user will likely find that some of their samples were flagged in the process. 
+
+```{r, echo=FALSE, fig.pos = "H", out.width="80%", fig.align="center"}
+knitr::include_graphics(here("vignettes/images/flowPeakDetectionOutput.png"))
+```  
+<b>
+Figure 7: Sample output from flowPeakDetection().
+</b> There are two columns that indicate whether or not a sample was flagged by the algorithm (1 = flagged, 0 = not flagged). The highlighted column in green is a general flag (detailed below). The highlighted column in purple is a doublet flag, indicating the sample potentially contains a doublet peak.  
+
+This flag could be from an excess of cells either to the left of the first identified $G_1$ peak or if the percentage of cells outside a boundary exceeds a specified threshold. The user has the option to force the peak detection algorithms to fit a specific number of subpopulations to a sample if they so choose. The output from this function is a *.csv* file structured in the same way as what is provided from *flowPeakDetection*, as well as a plot of the sample. The plot is shown in the console, but the user has the option to save it to their directory (using `savePlot`). We strongly recommend that users review all flagged populations. To analyze visually, users can plot all flagged samples using `massPlotGraph()`. 
+
+Note that it's possible for *peakCorrection* to not find the specified number of subpopulations in a sample. In this case, the function will stop the analysis early, give a message to the user, and no output will be provided.
+
+```{r, warning = FALSE, eval=FALSE, echo=TRUE}
+peakCorrection(
+  xVariable = "FL1-A",
+  flowDir,
+  sampleName,
+  numSubPop,
+  savePlot
+)
+```
+
+# Fluorescence Intensity Visualization 
+
+*flowLineGraph* is used to plot a histogram trace of the data from a single parameter (typically the one that corresponds to fluorescence intensity). This function can be used to plot a single sample or as many samples as desired - either on top of each other on the same panel or separately in a grid formation. This function is ideal for plotting a small number of samples (i.e. 1 to 12). The display of samples (specified by `grid`) is up to the user, but it defaulted as all samples on the same panel if multiple samples are chosen. All samples (specified by `flowSamples`) are coloured randomly by default. The user can specify other colours in a vector given to `flowColours` where the number of elements must match the number of samples. Note that the samples are coloured if they're plotted on one panel. A control population can be identified (`flowControl`) to be shown as a grey line. 
+
+When plotting samples separately in a grid formation, the user has the choice to include additional elements in each plot. Up to two blue dashed vertical lines can be added (using `vertLine1` and `vertLine2`). Each supplied vector must be of the same length as `flowSamples`. The user can also add red text to the top right corner of each plot. A vector of text (specified by `annotations`) should include a label in the first position, i.e. "RSE", and then the values the user wants to see in the rest. The length of the vector should be equal to the number of `flowSamples` plus one. Since the grid formation exports a *PDF* file to the user, it needs a name. The file name is defaulted to "Gated_Grid" but the user can customize it (using `fileName`).   
+
+Below is the function structure for `flowLineGraph()`, with a few example inputs.
+
+```{r, warning = FALSE, eval=FALSE, echo=TRUE}
+flowLineGraph(
+  flowControl = NA,
+  flowSamples,
+  flowColours = NA,
+  xVariable = "FL1-A",
+  flowDir,
+  grid = FALSE,
+  annotations = c("RSE", 10.87, 6.43, 34.38, 29.87, 4.54),
+  vertLine1 = c(180, 178, 156, 197, 195),
+  vertLine2 = c(254, 245, 234, 286, 312),
+  fileName = "Gated_Grid",
+  samplePeaks = NA
+)
+```  
+
+
+```{r, echo=FALSE, fig.pos = "H", out.width="50%", out.height="20%", fig.show='hold', fig.align="center"} 
+knitr::include_graphics(here("vignettes/images/flowLineGraph.png"))
+```     
+
+<b>
+Figure 8: Example of flowLineGraph() visualization.
+</b> A) Visualization with multiple samples on one plot, and B) a visualization of samples with a control plotted in a grid.
+
+*massFlowGraph* is used to plot histogram traces of the data from a single parameter (typically the one that corresponds to fluorescence intensity). This function utilizes the output from `flowPeakDetection()` as well as the grid functionality from `flowLineGraph()`. It allows the user to plot a large quantity of samples without having to specify the individual values for vertical lines and annotations. The user is prompted in the console to choose one of the three options for plotting:
+
+* Plot All Samples
+* Plot Flagged Samples (i.e. those samples with a '1' in the "investigate" column in output from `flowPeakDetection()`)
+* Plot Doublet Flagged Samples (i.e. those samples with a '1' in the "doublet" column in output from `flowPeakDetection()`)
+
+Once an option is chosen, the samples will be plotted individually in a grid formation using `flowLineGraph()`. Each sample will have its final relative standard error (RSE) annotated in the top right corner, and its first two $G_1$ peaks as vertical lines. Since the grid formation exports a *PDF* file to the user, its name can be customized by the user (using `fileName`), otherwise an appropriate default name will be used.
+
+Below is the function structure for `massFlowGraph()`.
+
+```{r, warning = FALSE, eval=FALSE, echo=TRUE}
+massFlowGraph(
+  xVariable = "FL1-A",
+  flowDir,
+  filePath,
+  fileName = "Gated_Grid"
+)
+``` 
+
+*massFlowGraph* will always produce output in the form of Figure 8B. 
+
+## Outlier Detection
+The user should look at which samples have a high RSE value after running the peak detection algorithm. These samples may also be annotated as outliers, of which are mostly likely in the top alpha percentile, where alpha is a specified threshold. *RSEOutlierDetection* can be used to identify and analyze samples where the RSE values are in the top alpha percentile. The user will specify the directory of samples (in `flowDir`) as well as the matching output from `flowPeakDetection()` (in `filepath`). The function will create a histogram to show the distribution of RSE values for all samples then flag the samples that fall in the top alpha percentile by adding a column to the *.csv* file that was passed in. The samples that were flagged are plotted in a grid using `flowLineGraph()`. Each plot will have the sample's RSE value, as well as the $G_1$ (blue dots) and $G_2$ (green dots) peaks so the user can further analyze them. The percentile is set at $5\%$ but can be changed using the `alpha` parameter. Note: if the skewness calculated from this histogram is less than zero, only the histogram is saved and no column is added to the *.csv* file. 
+
+```{r, warning = FALSE, eval=FALSE, echo=TRUE}
+RSEOutlierDetection(
+    xVariable = "FL1-A",
+    flowDir,
+    filePath,
+    fileName = "RSEOutlier",
+    alpha = 0.05
+)
+```
+
+```{r, echo=FALSE, fig.pos = "H", out.width="30%", fig.align="center"}
+image1 <- here("vignettes/images/RSE_Vignette_plot.jpeg")
+image2 <- here("vignettes/images/RSECol.png")
+image3 <- here("vignettes/images/RSEGrid.png")
+
+html_code <- sprintf('<div style="text-align: center; margin-bottom: 10px;">
+    <img src="%s" style="width: 35%%; height: auto; margin-right: 10px;" />
+    <img src="%s" style="width: 30%%; height: auto;" />
+    </div>
+    <div style="text-align: center;">
+    <img src="%s" style="width: 90%%; height: auto;" />
+    </div>', image1, image2, image3)
+
+htmltools::HTML(html_code)
+```  
+
+<b>
+Figure 9: Example of RSEOutlierDetection() output.
+</b> Visualization with multiple samples on one plot on the left, and a visualization of samples with a control plotted in a grid on the right.  
+
+# Output  
+Throughout the analysis, different data outputs are provided. These outputs will be saved in the parent directory of where the user saved their raw data. Note that the *experimentName* is the name of the parent directory of all files. 
+
+```{r, echo=FALSE, results='asis', table.pos='H'}
+library(magrittr)
+library(knitr)
+library(kableExtra)
+data <- data.frame(
+  Function = c("rectGateFlowFrame", "rectGateFlowSet", "flowPeakDetection", "peakCorrection", "flowLineGraph", "massFlowGraph", "RSEOutlierDetection"),
+  Outputs = c("Single .fcs file of gated data and plots of the gated data (before and after gating).", "Set of .fcs files of gated data, plots of the gated data (before and after gating), and .csv file (named experimentName_percentOfCellsGatedOut). The user can use this file as an indication of if a sample is messy (a significantly greater proportion of cells gated out than the other samples), if the chosen gating parameters were chosen properly (there were no cells gated out), or the proportion was significantly large for all.", "A .csv file (named experimentName_ploidyPeaksOutput). This file contains all of the information from the peak detection analysis. Each row is a different sample. Column information is peak means ($G_1$ and $G_2$ peaks), peak heights, and includes the number of identified subpopulations. The user can also specify if they want similar information on doublets, whether to include an indicator of whether the sample should be investigated further by the user, which peak algorithm was used to analyze each sample, and the residual standard error value from the models.", "A .csv file (named sample_ploidyPeaksOutput) and line graph of the sample with identified peaks. The information in the *.csv* file is the same as the peak detection analysis.", "A single line graph in the console or a PDF file of multiple samples in a grid.", "PDF file of samples as determined by the user (all samples, flagged samples, or doublet flagged samples). Samples are plotted in a grid using `flowLineGraph()`.", "Provides up to three things to the user. First is a histogram of the distribution of RSE values for a set of samples. Second is a new column in the *.csv* file identifying outliers based on provided threshold. Third is a *PDF* file of the plotted outlier samples.")
+)
+
+# Print the data frame using kableExtra
+kable(data, format = "html") %>% 
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE) %>%
+  column_spec(1, width = "20%") %>%
+  column_spec(2, width = "80%")
+```
+
+
+```{r, echo=FALSE, fig.pos = "H", out.width="50%", fig.align="center"}
+knitr::include_graphics(here("vignettes/images/folder_structure.png"))
+```   
+
+<b>
+Figure 10: The folder structure created by *ploidyPeaks*.
+</b> The user creates the initial folder that contains the data they want to analyze (raw_data), which will be the main directory for the package. When using the gating functions, the package creates a folder for the gated data (gated_data), a folder for the plots comparing the gated and the raw data (plotted_data), and a *.csv* called *experimentName_percentOfCellsGatedOut* with information on the percent of cells gated out for each sample. When analyzing the data with `flowPeakDetection()`, a *.csv* called *experimentName_ploidyPeaksOutput* will be created in a folder called analysis. Additionally, a folder will be created to store the graphs for the models (nlsGraphs) with sub folders for each model (nlsSingle_graphs, nlsDoublet_graphs, nlsMultiple_graphs).
+
+# Walk-Through of Package 
+This is a walk-through from the starting point of raw flow cytometry data to the end of the analysis. Ensure you have access to the flow cytometry files, outlined in the Sample Data section at the top of this vignette.
+
+Step 1: Gating the Data  
+
+We are going to use one of the datasets from *flowTime* that is automatically downloaded when you install the package. First, we'll define our path to the dataset, and then use `rectGateFlowFrame()` to test out which values to use to gate out the debris.
+
+A folder called 'plotted_data' will be created with visual outputs of the gate. From there we can see if we like the gate we applied.  
+```{r, warning = FALSE, eval=TRUE, echo=TRUE}
+rectGateFlowFrame(
+  rawDir = rawFolder,
+  flowName = "A1_1.fcs",
+  xVariable = "FITC-A",
+  yVariable = "SSC-A",
+  xMinValue = 50,
+  xMaxValue = 800,
+  yMinValue = 50,
+  yMaxValue = 800,
+  savePlot = TRUE
+)
+```    
+
+```{r, echo=FALSE, fig.pos = "H", out.width="50%", fig.align="center"}
+knitr::include_graphics(here("vignettes/images/A1_1-propergate.png"))
+```    
+
+This gate looks good so now let's apply it to our whole flow set. 
+
+```{r, warning = FALSE, eval=TRUE, echo=TRUE}
+rectGateFlowSet(
+  rawDir = rawFolder,
+  xVariable = "FITC-A",
+  yVariable = "SSC-A",
+  xMinValue = 50,
+  xMaxValue = 800,
+  yMinValue = 50,
+  yMaxValue = 800,
+  savePlot = TRUE
+)
+```   
+
+Now that we gated the data, we can proceed to our analysis. The gated data is saved in a folder called 'gated_data', which will be the directory we will be using from now on.
+
+Step 2: Preliminary Visualization
+
+Let's take a look at the first six samples in our dataset.
+
+```{r, warning=FALSE, eval=TRUE, out.width="75%", echo=FALSE}
+flowLineGraph(flowSamples = c("A1_1.fcs", "A1_2.fcs", "A1_3.fcs", "A1_4.fcs",
+                              "A1_5.fcs", "A1_6.fcs"), flowColours =
+                c("#DF536B", "#61D04F", "#2297E6", "#28E2E5", "#CD0BBC",
+                  "#F5C710"), xVariable = "FITC-A",
+              flowDir = gatedFolder, grid = FALSE)
+```
+
+```{r, echo=FALSE, fig.pos = "H", out.width="75%", fig.align="center"}
+knitr::include_graphics(here("vignettes/images/prelimVis.jpeg"))
+```  
+
+Step 3: Peak Detection Analysis  
+
+```{r, warning = FALSE, eval=TRUE, echo=TRUE}
+flowPeakDetection(
+  flowDir = gatedFolder,
+  xVariable = "FITC-A",
+  doublet = FALSE,
+  singleThreshold = 8.5,
+  usedCellsThreshold = 86
+)  
+```    
+
+Let's suppose we want to re-run the peak detection analysis on a specific sample. Here, we re-run the algorithm on one sample.
+
+```{r, warning = FALSE, eval=TRUE, echo=TRUE}
+peakCorrection(xVariable = "FITC-A",
+               flowDir = gatedFolder,
+               sampleName = "A1_4.fcs", numSubPop = 2)
+```
+
+Step 4: Visualization
+
+Now that we know where the peaks are in each of our samples, let's plot a grid of all of our samples.
+
+```{r, warning = FALSE, eval=FALSE, echo=TRUE}
+massFlowGraph(
+  xVariable = "FITC-A",
+  flowDir = gatedFolder,
+  filePath = paste0(dirname(gatedFolder), "/analysis", "/BiocFileCache_ploidyPeaksOutput.csv"),
+  fileName = "allSamples"
+)
+```
+
+Step 5: Outlier Detection
+
+Let's take a look at which samples have a high RSE value. We'll identify those at the top 5% to be considered an outlier.
+
+```{r, warning = FALSE, eval=FALSE, echo=TRUE}
+RSEOutlierDetection(xVariable = "FITC-A",
+                    flowDir = gatedFolder,
+                    filePath = paste0(dirname(gatedFolder), "/analysis", "/BiocFileCache_ploidyPeaksOutput.csv"),
+                    fileName = "RSEOutlier",
+                    alpha = 0.05)
+```
+
+Now, we can look at the *.csv* files, plots of our samples, the distribution of RSE values, as well as the plots of our outliers.
+
+```{r, warning = FALSE, echo=TRUE}
+sessionInfo()
+```
