@@ -7,16 +7,16 @@
 peakCorrection(xVariable = "FL1-A", flowDir = NA, sampleName, numSubPop = 2)
 }
 \arguments{
-\item{xVariable}{The fluorescence channel on the x axis}
+\item{xVariable}{The fluorescence channel on the x-axis (determined by the
+set-up of your flow cytometer; ex. FLA-1, FITC-A)}
 
-\item{flowDir}{The directory of the gated .fcs data}
+\item{flowDir}{The directory of the gated .fcs files. If NA, then a window
+will prompt the user to select a folder (string file path)}
 
-\item{sampleName}{the name of the sample the user wants to analyze}
+\item{sampleName}{The name of the sample the user wants to analyze (string)}
 
 \item{numSubPop}{the number of subpopulations the user wants
-the algorithm to identify
-
-@import flowTime}
+the algorithm to identify (i.e., 2, 3; numerical)}
 }
 \value{
 a .csv with information about each sample and nls graphs
@@ -27,27 +27,35 @@ a sample with a certain number of subpopulations.
 }
 \examples{
 library(BiocFileCache)
-bfc <- BiocFileCache()
-urls <- c(
-  "https://ploidypeaksvignette.blob.core.windows.net/ploidypeaksvignettedata/gated_data/A1_1.fcs",
-  "https://ploidypeaksvignette.blob.core.windows.net/ploidypeaksvignettedata/gated_data/A1_2.fcs",
-  "https://ploidypeaksvignette.blob.core.windows.net/ploidypeaksvignettedata/gated_data/A1_3.fcs",
-  "https://ploidypeaksvignette.blob.core.windows.net/ploidypeaksvignettedata/gated_data/A1_4.fcs",
-  "https://ploidypeaksvignette.blob.core.windows.net/ploidypeaksvignettedata/gated_data/A1_5.fcs",
-  "https://ploidypeaksvignette.blob.core.windows.net/ploidypeaksvignettedata/gated_data/A1_6.fcs"
-)
-folderPath <- file.path(bfc@cache, "gated_data")
-dir.create(folderPath, showWarnings = FALSE, recursive = TRUE)
-cachedFiles <- sapply(urls, function(url) {
-  cachedFile <- bfcadd(bfc, url)
-  targetFile <- file.path(folderPath, basename(url))
-  if (!file.exists(targetFile)) file.copy(cachedFile, targetFile)
-})
+original_wd <- getwd()
+cachePath <- tempfile(pattern = "bioc_cache_")
+dir.create(cachePath, showWarnings = FALSE)
+bfc <- BiocFileCache(cachePath, ask = FALSE)
+on.exit({
+ if(normalizePath(cachePath) == normalizePath(getwd())){
+   setwd(tempdir())  
+ }
+ unlink(cachePath, recursive = TRUE, force = TRUE)
+}, add = TRUE)
+gatedFolder <- file.path(cachePath, "fcs_data")
+dir.create(gatedFolder, showWarnings = FALSE)
+urls <- c("https://ploidypeaksvignette.blob.core.windows.net/ploidypeaksvignettedata/gated_data/A1_4.fcs")
+rids <- vapply(urls, function(url) {
+  res <- bfcquery(bfc, url)
+  if(nrow(res) == 0){
+    bfcadd(bfc, basename(url), url)
+  }else{
+    res$rid[1]
+  }
+}, character(1))
+fpaths <- bfcrpath(bfc, urls)
+newFPaths <- file.path(gatedFolder, basename(urls))
+file.copy(fpaths, newFPaths, overwrite = TRUE)
+downloadedFiles <- newFPaths
 peakCorrection(
  xVariable = "FITC-A",
- flowDir = folderPath,
+ flowDir = gatedFolder,
  sampleName = "A1_4.fcs",
  numSubPop = 2
  )
-
 }

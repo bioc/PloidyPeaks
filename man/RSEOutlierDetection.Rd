@@ -13,13 +13,16 @@ RSEOutlierDetection(
 )
 }
 \arguments{
-\item{xVariable}{The fluorescence channel on the x axis}
+\item{xVariable}{The fluorescence channel on the x-axis (determined by the
+set-up of your flow cytometer; ex. FLA-1, FITC-A)}
 
-\item{flowDir}{The directory of the gated .fcs data}
+\item{flowDir}{The directory of the gated .fcs files. If NA, then a window
+will prompt the user to select a folder (string file path)}
 
-\item{filePath}{The csv analysis file that pairs with the gated .fcs data}
+\item{filePath}{The directory of the output .csv file from
+\code{flowPeakDetection()} that corresponds to the gated data (string file path)}
 
-\item{fileName}{To label the PDF file of plotted outlier samples}
+\item{fileName}{To label the PDF file of plotted outlier samples (string)}
 
 \item{alpha}{The top percentage used to identify outliers (i.e 0.05)}
 }
@@ -39,9 +42,19 @@ formation using \code{flowLineGraph()} where the dots on each plot are the G1
 (blue) and G2 (green) peaks with the respective RSE in the top right corner.
 }
 \examples{
-\dontrun{
 library(BiocFileCache)
-bfc <- BiocFileCache()
+original_wd <- getwd()
+cachePath <- tempfile(pattern = "bioc_cache_")
+dir.create(cachePath, showWarnings = FALSE)
+bfc <- BiocFileCache(cachePath, ask = FALSE)
+on.exit({
+ if(normalizePath(cachePath) == normalizePath(getwd())){
+   setwd(tempdir())  
+ }
+ unlink(cachePath, recursive = TRUE, force = TRUE)
+}, add = TRUE)
+gatedFolder <- file.path(cachePath, "fcs_data")
+dir.create(gatedFolder, showWarnings = FALSE)
 urls <- c(
   "https://ploidypeaksvignette.blob.core.windows.net/ploidypeaksvignettedata/gated_data/A1_1.fcs",
   "https://ploidypeaksvignette.blob.core.windows.net/ploidypeaksvignettedata/gated_data/A1_2.fcs",
@@ -50,25 +63,31 @@ urls <- c(
   "https://ploidypeaksvignette.blob.core.windows.net/ploidypeaksvignettedata/gated_data/A1_5.fcs",
   "https://ploidypeaksvignette.blob.core.windows.net/ploidypeaksvignettedata/gated_data/A1_6.fcs"
 )
-folderPath <- file.path(bfc@cache, "gated_data")
-dir.create(folderPath, showWarnings = FALSE, recursive = TRUE)
-cachedFiles <- sapply(urls, function(url) {
-  cachedFile <- bfcadd(bfc, url)
-  targetFile <- file.path(folderPath, basename(url))
-  if (!file.exists(targetFile)) file.copy(cachedFile, targetFile)
-})
-url <- "https://ploidypeaksvignette.blob.core.windows.net/ploidypeaksvignettedata/analysis/ploidyPeaksOutput.csv"
-subDir <- file.path(bfc@cache, "csv_data")
-dir.create(subDir, showWarnings = FALSE, recursive = TRUE)
-analysisFile <- file.path(subDir, basename(url))
-if (!file.exists(analysisFile)) file.copy(bfcadd(bfc, url), analysisFile)
+rids <- vapply(urls, function(url){
+  res <- bfcquery(bfc, url)
+  if(nrow(res) == 0){
+    bfcadd(bfc, basename(url), url)
+  }else{
+    res$rid[1]
+  }
+}, character(1))
+fpaths <- bfcrpath(bfc, urls)
+newFPaths <- file.path(gatedFolder, basename(urls))
+file.copy(fpaths, newFPaths, overwrite = TRUE)
+downloadedFiles <- newFPaths
+csv <- "https://ploidypeaksvignette.blob.core.windows.net/ploidypeaksvignettedata/analysis/ploidyPeaksOutput.csv"
+rid <- bfcquery(bfc, csv, field = "rname")$rid
+if (length(rid) == 0) {
+  rid <- bfcadd(bfc, csv, csv)
+}
+cachedFile <- bfcrpath(bfc, rid) 
+analysisFile <- file.path(csvFolder, basename(csv))
+if (!file.exists(analysisFile)) file.copy(cachedFile, analysisFile)
 RSEOutlierDetection(
  xVariable = "FITC-A",
- flowDir = folderPath,
+ flowDir = gatedFolder,
  filePath = analysisFile,
  fileName = "gatedDataRSE",
  alpha = 0.05
 )
-}
-
 }

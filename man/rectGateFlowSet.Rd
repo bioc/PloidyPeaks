@@ -16,22 +16,25 @@ rectGateFlowSet(
 )
 }
 \arguments{
-\item{rawDir}{The directory of the raw .fcs data}
+\item{rawDir}{The directory of the raw .fcs files. If NA, then a window
+will prompt the user to select a folder (string file path)}
 
-\item{xVariable}{The fluorescence channel on the x axis}
+\item{xVariable}{The fluorescence channel on the x-axis (determined by the
+set-up of your flow cytometer; ex. FLA-1, FITC-A)}
 
-\item{yVariable}{The fluorescence channel on the y axis}
+\item{yVariable}{The fluorescence channel on the y axis (determined by the
+set-up of your flow cytometer; ex. SSC-A)}
 
-\item{xMinValue}{The lower bound x value for the gate}
+\item{xMinValue}{The lower bound x value for the gate (numerical)}
 
-\item{xMaxValue}{The upper bound x value for the gate}
+\item{xMaxValue}{The upper bound x value for the gate (numerical)}
 
-\item{yMinValue}{The lower bound y value for the gate}
+\item{yMinValue}{The lower bound y value for the gate (numerical)}
 
-\item{yMaxValue}{The upper bound y value for the gate}
+\item{yMaxValue}{The upper bound y value for the gate (numerical)}
 
 \item{savePlot}{A side by side graph comparison the raw data and the gated
-data - by default TRUE}
+data - by default TRUE (logical)}
 }
 \value{
 A set of .fcs of the gated data, plots of gated data, and a .csv
@@ -43,7 +46,18 @@ of your gated data, and a plot of the original data
 }
 \examples{
 library(BiocFileCache)
-bfc <- BiocFileCache()
+original_wd <- getwd()
+cachePath <- tempfile(pattern = "bioc_cache_")
+dir.create(cachePath, showWarnings = FALSE)
+bfc <- BiocFileCache(cachePath, ask = FALSE)
+on.exit({
+ if(normalizePath(cachePath) == normalizePath(getwd())){
+   setwd(tempdir())  
+ }
+ unlink(cachePath, recursive = TRUE, force = TRUE)
+}, add = TRUE)
+rawFolder <- file.path(cachePath, "fcs_data")
+dir.create(rawFolder, showWarnings = FALSE)
 urls <- c(
   "https://ploidypeaksvignette.blob.core.windows.net/ploidypeaksvignettedata/raw_data/A1_1.fcs",
   "https://ploidypeaksvignette.blob.core.windows.net/ploidypeaksvignettedata/raw_data/A1_2.fcs",
@@ -52,15 +66,20 @@ urls <- c(
   "https://ploidypeaksvignette.blob.core.windows.net/ploidypeaksvignettedata/raw_data/A1_5.fcs",
   "https://ploidypeaksvignette.blob.core.windows.net/ploidypeaksvignettedata/raw_data/A1_6.fcs"
 )
-folderPath <- file.path(bfc@cache, "raw_data")
-dir.create(folderPath, showWarnings = FALSE, recursive = TRUE)
-cachedFiles <- sapply(urls, function(url) {
-  cachedFile <- bfcadd(bfc, url)
-  targetFile <- file.path(folderPath, basename(url))
-  if (!file.exists(targetFile)) file.copy(cachedFile, targetFile)
-})
+rids <- vapply(urls, function(url){
+  res <- bfcquery(bfc, url)
+  if(nrow(res) == 0){
+    bfcadd(bfc, basename(url), url)
+  }else{
+    res$rid[1]
+  }
+}, character(1))
+fpaths <- bfcrpath(bfc, urls)
+newFPaths <- file.path(rawFolder, basename(urls))
+file.copy(fpaths, newFPaths, overwrite = TRUE)
+downloadedFiles <- newFPaths
 rectGateFlowSet(
- rawDir = folderPath,
+ rawDir = rawFolder,
  xVariable = "FITC-A",
  yVariable = "SSC-A",
  xMinValue = 50,

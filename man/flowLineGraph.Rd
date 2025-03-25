@@ -19,34 +19,40 @@ flowLineGraph(
 )
 }
 \arguments{
-\item{flowDir}{The directory where the data is located. If NA, then a window
-will prompt the user to select a folder.}
+\item{flowDir}{The directory of the .fcs files. If NA, then a window
+will prompt the user to select a folder (string file path)}
 
-\item{flowControl}{The control sample}
+\item{flowControl}{The control sample (string name of the .fcs file)}
 
-\item{flowSamples}{The vector of samples}
+\item{flowSamples}{A vector of samples that the user wants to analyze if they
+do not want to analyze the full dataset; default value is NA (vector
+containing the names of each file in flowDir as a string)}
 
-\item{xVariable}{The fluorescence channel you are interested in visualizing}
+\item{xVariable}{The fluorescence channel on the x-axis (determined by the
+set-up of your flow cytometer; ex. FLA-1, FITC-A)}
 
 \item{flowColours}{Vector of colours for the flowSample to be plotted (only
-used if grid = FALSE)}
+used if grid = FALSE; should be a vector of strings of the colour names)}
 
 \item{grid}{Whether you want to plot samples individual samples in a grid or
-all together on one graph panel}
+all together on one graph panel (TRUE or FALSE)}
 
 \item{annotations}{The vector of annotations to plot on each graph in the
-grid where the first entry is the label for the annotation}
+grid where the first entry is the label for the annotation (vector containing
+strings of the values you want to display)}
 
 \item{vertLine1}{The vector of values for a vertical line to be plotted on
-each graph in the grid}
+each graph in the grid (vector containing a numerical value for each sample)}
 
 \item{vertLine2}{The vector of values for a second vertical line to be
-plotted on each graph in the grid}
+plotted on each graph in the grid (vector containing a numerical value for
+each sample)}
 
-\item{fileName}{To label the PDF file if plotting as a grid}
+\item{fileName}{To label the PDF file if plotting as a grid (string)}
 
 \item{samplePeaks}{The matrix of G1 and G2 peak values for each sample (NOTE:
-this is only used in the \code{RSEOutlierDetection()} function)}
+this is only used in the \code{RSEOutlierDetection()} function and should not be
+utilized if strictly using the main function)}
 }
 \value{
 either a single line graph for the samples or a PDF file of samples
@@ -65,7 +71,18 @@ parameter will be ignored.
 }
 \examples{
 library(BiocFileCache)
-bfc <- BiocFileCache()
+original_wd <- getwd()
+cachePath <- tempfile(pattern = "bioc_cache_")
+dir.create(cachePath, showWarnings = FALSE)
+bfc <- BiocFileCache(cachePath, ask = FALSE)
+on.exit({
+ if(normalizePath(cachePath) == normalizePath(getwd())){
+   setwd(tempdir())  
+ }
+ unlink(cachePath, recursive = TRUE, force = TRUE)
+}, add = TRUE)
+gatedFolder <- file.path(cachePath, "fcs_data")
+dir.create(gatedFolder, showWarnings = FALSE)
 urls <- c(
   "https://ploidypeaksvignette.blob.core.windows.net/ploidypeaksvignettedata/gated_data/A1_1.fcs",
   "https://ploidypeaksvignette.blob.core.windows.net/ploidypeaksvignettedata/gated_data/A1_2.fcs",
@@ -74,31 +91,28 @@ urls <- c(
   "https://ploidypeaksvignette.blob.core.windows.net/ploidypeaksvignettedata/gated_data/A1_5.fcs",
   "https://ploidypeaksvignette.blob.core.windows.net/ploidypeaksvignettedata/gated_data/A1_6.fcs"
 )
-folderPath <- file.path(bfc@cache, "gated_data")
-dir.create(folderPath, showWarnings = FALSE, recursive = TRUE)
-cachedFiles <- sapply(urls, function(url) {
-  cachedFile <- bfcadd(bfc, url)
-  targetFile <- file.path(folderPath, basename(url))
-  if (!file.exists(targetFile)) file.copy(cachedFile, targetFile)
-})
- flowLineGraph(
-  flowControl = "A1_1.fcs",
-  flowSamples = c("A1_2.fcs", "A1_3.fcs", "A1_4.fcs", "A1_5.fcs", "A1_6.fcs"),
-  flowColours = c("green", "blue", "red", "orange", "purple"),
-  xVariable = "FITC-A",
-  flowDir = folderPath,
-  grid = FALSE
- )
- flowLineGraph(
-  flowControl = "A1_1.fcs",
-  flowSamples = c("A1_2.fcs", "A1_3.fcs", "A1_4.fcs", "A1_5.fcs", "A1_6.fcs"),
-  flowColours = NA,
-  xVariable = "FITC-A",
-  flowDir = folderPath,
-  grid = TRUE,
-  annotations = c("RSE", 12.41, 13.16, 13.45, 8.15, 4.21),
-  vertLine1 = c(150, 155, 150, 145, 140),
-  vertLine2 = c(335, 330, 340, 330, 305),
-  fileName = "Gated_Grid"
- )
+rids <- vapply(urls, function(url){
+  res <- bfcquery(bfc, url)
+  if(nrow(res) == 0){
+    bfcadd(bfc, basename(url), url)
+  }else{
+    res$rid[1]
+  }
+}, character(1))
+fpaths <- bfcrpath(bfc, urls)
+newFPaths <- file.path(gatedFolder, basename(urls))
+file.copy(fpaths, newFPaths, overwrite = TRUE)
+downloadedFiles <- newFPaths
+flowLineGraph(
+ flowControl = "A1_1.fcs",
+ flowSamples = c("A1_2.fcs", "A1_3.fcs", "A1_4.fcs", "A1_5.fcs", "A1_6.fcs"),
+ flowColours = NA,
+ xVariable = "FITC-A",
+ flowDir = gatedFolder,
+ grid = TRUE,
+ annotations = c("RSE", 12.41, 13.16, 13.45, 8.15, 4.21),
+ vertLine1 = c(150, 155, 150, 145, 140),
+ vertLine2 = c(335, 330, 340, 330, 305),
+ fileName = "Gated_Grid"
+)
 }

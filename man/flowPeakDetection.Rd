@@ -16,24 +16,27 @@ flowPeakDetection(
 )
 }
 \arguments{
-\item{xVariable}{The fluorescence channel on the x axis}
+\item{xVariable}{The fluorescence channel on the x-axis (determined by the
+set-up of your flow cytometer; ex. FLA-1, FITC-A)}
 
-\item{flowDir}{The directory of the gated .fcs data}
+\item{flowDir}{The directory of the gated .fcs data. If NA, then a window
+will prompt the user to select a folder (string file path)}
 
-\item{doublet}{T/F for having the information about doublets in the output
-dataset - by default FALSE}
+\item{doublet}{TRUE/FALSE for having the information about doublets in the output
+dataset - by default FALSE (logical)}
 
-\item{saveOutputGraph}{T/F for saving the graphs as an output of the NLS}
+\item{saveOutputGraph}{TRUE/FALSE for saving the graphs as an output of the NLS (logical)}
 
-\item{singleThreshold}{threshold for classifying single populations}
+\item{singleThreshold}{threshold for classifying single populations (numerical)}
 
-\item{usedCellsThreshold}{threshold for classifying multiple populations}
+\item{usedCellsThreshold}{threshold for classifying multiple populations (numerical)}
 
 \item{maxDoubletHeight}{The maximum height a doublet can be. If left as NA
-the algorithm will find a value based on the other peaks}
+the algorithm will find a value based on the other peaks. (numerical)}
 
 \item{subsetDs}{A vector of samples that the user wants to analyze if they
-do not want to analyse the full dataset. Default value is NA}
+do not want to analyse the full dataset; default value is NA (vector
+containing the names of each file in flowDir as a string)}
 }
 \value{
 a .csv with information about each sample and nls graphs
@@ -43,12 +46,24 @@ The wrapper function flowPeakDetection is the main function that consists of
 five main peak algorithm functions, as well as five helper functions used
 within the main functions. The output of flowPeakDetection is a single .csv
 file with information about the location of each peak and their height,
-as well as a “for review” and doublet indicator. In addition a statistical
-measure of confidence for the number of sub-populations (RSE).
+as well as a “for review” and doublet indicator. In addition, a statistical
+measure of confidence for the number of sub-populations is provided (relative
+standard error; RSE).
 }
 \examples{
 library(BiocFileCache)
-bfc <- BiocFileCache()
+original_wd <- getwd()
+cachePath <- tempfile(pattern = "bioc_cache_")
+dir.create(cachePath, showWarnings = FALSE)
+bfc <- BiocFileCache(cachePath, ask = FALSE)
+on.exit({
+ if(normalizePath(cachePath) == normalizePath(getwd())){
+   setwd(tempdir())  
+ }
+ unlink(cachePath, recursive = TRUE, force = TRUE)
+}, add = TRUE)
+gatedFolder <- file.path(cachePath, "fcs_data")
+dir.create(gatedFolder, showWarnings = FALSE)
 urls <- c(
   "https://ploidypeaksvignette.blob.core.windows.net/ploidypeaksvignettedata/gated_data/A1_1.fcs",
   "https://ploidypeaksvignette.blob.core.windows.net/ploidypeaksvignettedata/gated_data/A1_2.fcs",
@@ -57,21 +72,25 @@ urls <- c(
   "https://ploidypeaksvignette.blob.core.windows.net/ploidypeaksvignettedata/gated_data/A1_5.fcs",
   "https://ploidypeaksvignette.blob.core.windows.net/ploidypeaksvignettedata/gated_data/A1_6.fcs"
 )
-folderPath <- file.path(bfc@cache, "gated_data")
-dir.create(folderPath, showWarnings = FALSE, recursive = TRUE)
-cachedFiles <- sapply(urls, function(url) {
-  cachedFile <- bfcadd(bfc, url)
-  targetFile <- file.path(folderPath, basename(url))
-  if (!file.exists(targetFile)) file.copy(cachedFile, targetFile)
-})
+rids <- vapply(urls, function(url) {
+  res <- bfcquery(bfc, url)
+  if(nrow(res) == 0){
+    bfcadd(bfc, basename(url), url)
+  }else{
+    res$rid[1]
+  }
+}, character(1))
+fpaths <- bfcrpath(bfc, urls)
+newFPaths <- file.path(gatedFolder, basename(urls))
+file.copy(fpaths, newFPaths, overwrite = TRUE)
+downloadedFiles <- newFPaths
 flowPeakDetection(
  xVariable = "FITC-A",
- flowDir = folderPath,
+ flowDir = gatedFolder,
  doublet = FALSE,
  saveOutputGraph = FALSE,
  singleThreshold = 8,
  usedCellsThreshold = 86,
  maxDoubletHeight = NA
  )
- 
 }
