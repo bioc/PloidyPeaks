@@ -1,9 +1,10 @@
 ---
 title: "ploidyPeaks: Peak detection and statistical analysis of karyotypic variation from flow cytometry data"
 subtitle: "Margot Henry, Caitlin Kostna, Leanne Von Giese, and Aleeza Gerstein"
-output: BiocStyle::html_document:
-  toc: true
-  toc_depth: 2
+output:
+  BiocStyle::html_document:
+    toc: true
+    toc_depth: 2
 vignette: >
   %\VignetteIndexEntry{ploidyPeaks}
   %\VignetteEngine{knitr::rmarkdown}
