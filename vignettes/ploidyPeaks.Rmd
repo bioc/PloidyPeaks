@@ -446,7 +446,7 @@ knitr::include_graphics(here("vignettes/images/prelimVis.jpeg"))
 
 Step 3: Peak Detection Analysis  
 
-```{r, warning = FALSE, eval=TRUE, echo=TRUE}
+```{r, warning = FALSE, eval=FALSE, echo=TRUE}
 flowPeakDetection(
   flowDir = gatedFolder,
   xVariable = "FITC-A",
