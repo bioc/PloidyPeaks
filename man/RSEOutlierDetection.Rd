@@ -75,12 +75,14 @@ fpaths <- bfcrpath(bfc, urls)
 newFPaths <- file.path(gatedFolder, basename(urls))
 file.copy(fpaths, newFPaths, overwrite = TRUE)
 downloadedFiles <- newFPaths
+csvFolder <- file.path(cachePath, "csv_data")
+dir.create(csvFolder, showWarnings = FALSE)
 csv <- "https://ploidypeaksvignette.blob.core.windows.net/ploidypeaksvignettedata/analysis/ploidyPeaksOutput.csv"
 rid <- bfcquery(bfc, csv, field = "rname")$rid
 if (length(rid) == 0) {
   rid <- bfcadd(bfc, csv, csv)
 }
-cachedFile <- bfcrpath(bfc, rid) 
+cachedFile <- bfcrpath(bfc, rid)
 analysisFile <- file.path(csvFolder, basename(csv))
 if (!file.exists(analysisFile)) file.copy(cachedFile, analysisFile)
 RSEOutlierDetection(
