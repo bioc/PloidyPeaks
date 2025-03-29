@@ -72,7 +72,7 @@
 #' if (length(rid) == 0) {
 #'   rid <- bfcadd(bfc, csv, csv)
 #' }
-#' cachedFile <- bfcrpath(bfc, rid) 
+#' cachedFile <- bfcrpath(bfc, rid)
 #' analysisFile <- file.path(csvFolder, basename(csv))
 #' if (!file.exists(analysisFile)) file.copy(cachedFile, analysisFile)
 #' RSEOutlierDetection(
