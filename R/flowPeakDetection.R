@@ -106,6 +106,7 @@ flowPeakDetection = function(
     getwd()
     flowDir <- tclvalue(tkchooseDirectory())
   }
+  
   if(TRUE %in% is.na(subsetDs)){
     flowSet <- list.files(flowDir)
   }else{
@@ -400,14 +401,16 @@ flowPeakDetection = function(
     }
     
     ##Reading in and smoothing data
-    flowName <- flowCore::read.FCS(
-      paste0(flowDir, "/", flowSet[k]), transformation=FALSE
+    xpectr::suppress_mw(
+      flowName <- flowCore::read.FCS(
+        paste0(flowDir, "/", flowSet[k]), transformation=FALSE
+      )
     )
     
     if(!xVariable %in% flowName@parameters@data$name){
       stop("Your X variable is not in the dataset")
     }
-    flowData <- .smoothData( flowName, xVariable, 11)
+    flowData <- .smoothData(flowName, xVariable, 11)
     logFlow[1, ] <- c(
       algorithmNum,
       flowName@description[["GUID"]],
@@ -466,8 +469,8 @@ flowPeakDetection = function(
       g2ToTestDs3 <- possiblePeaks[g2ToTestDs2,]
       if(nrow(g2ToTestDs3) == 0){
         g2ToTestDs3 <- data.frame(
-          x <- 0,
-          y <- 0
+          x = 0,
+          y = 0
         )
       }
       #The peak is G2 and G1 is missing
@@ -576,10 +579,10 @@ flowPeakDetection = function(
       }
       singleDs <- data.frame(
         data=flowName@description[["GUID"]],
-        x <- peaksFix$x[1],
-        y <- peaksFix$y[1],
-        possiblePairX <- peaksFix$x[2],
-        possiblePairY <- peaksFix$y[2]
+        x = peaksFix$x[1],
+        y = peaksFix$y[1],
+        possiblePairX = peaksFix$x[2],
+        possiblePairY = peaksFix$y[2]
       )
       rangeLength <- nchar(format(xVarMax, scientific=FALSE))
       multiplier <- 10^(rangeLength-3)
@@ -606,8 +609,8 @@ flowPeakDetection = function(
     }
     if(detectL <= missedThreshold | detectL >= 85){
       checkPeakFlag <- data.frame(
-        data <- flowName@description[["GUID"]],
-        flag <- 1
+        data = flowName@description[["GUID"]],
+        flag = 1
       )
       checkFlag <- rbind(
         checkFlag,
@@ -660,8 +663,10 @@ flowPeakDetection = function(
   algorithmNum <- 2
   
   for(k in seq_len(length(flowNameDs))){
-    flowName <- flowCore::read.FCS(
-      paste0(flowDir, "/", flowNameDs[k]), transformation=FALSE
+    xpectr::suppress_mw(
+      flowName <- flowCore::read.FCS(
+        paste0(flowDir, "/", flowNameDs[k]), transformation=FALSE
+      )
     )
     if(!xVariable %in% flowName@parameters@data$name){
       stop("Your X variable is not in the dataset")
@@ -752,7 +757,7 @@ flowPeakDetection = function(
     if(nrow(possiblePeaks6) != 0){
       if(nrow(possiblePeaks6) == 1){
         peakRow <- data.frame(
-          peaks <- c(
+          peaks = c(
             possiblePeaks6$x,
             possiblePeaks6$possiblePairX,
             possiblePeaks6$g1G2Doublet,
@@ -761,7 +766,7 @@ flowPeakDetection = function(
         )
       }else{
         peakRow <- data.frame(
-          peaks <- c(
+          peaks = c(
             possiblePeaks6$x,
             possiblePeaks6$possiblePairX
           )
@@ -820,15 +825,15 @@ flowPeakDetection = function(
       possiblePeaks6$propCellsUsed <- propCellsUsed
     }else{
       possiblePeaks6 <- data.frame(
-        x <- NA,
-        y <- NA,
-        cluster <- NA,
-        LL <- NA,
-        UL <- NA,
-        possiblePairX <- NA,
-        possiblePairY <- NA,
-        data <- flowName@description[["GUID"]],
-        propCellsUsed <- NA
+        x = NA,
+        y = NA,
+        cluster = NA,
+        LL = NA,
+        UL = NA,
+        possiblePairX = NA,
+        possiblePairY = NA,
+        data = flowName@description[["GUID"]],
+        propCellsUsed = NA
       )
     }
     if(
@@ -836,7 +841,7 @@ flowPeakDetection = function(
       !is.na(possiblePeaks6$propCellsUsed[1])
     ){
       possiblePeaks7 <- possiblePeaks6 %>% dplyr::mutate(
-        data <- flowName@description[["GUID"]]
+        data = flowName@description[["GUID"]]
       )
       finishedData <- rbind(
         finishedData,
@@ -880,9 +885,12 @@ flowPeakDetection = function(
   colnames(logFlow) <- c("Algorithm", "Data", "Success")
   algorithmNum <- 3
   for(k in seq_len(length(flowNameDs))){
-    flowName <- flowCore::read.FCS(
-      paste0(flowDir, "/", flowNameDs[k]), transformation=FALSE
+    xpectr::suppress_mw(
+      flowName <- flowCore::read.FCS(
+        paste0(flowDir, "/", flowNameDs[k]), transformation=FALSE
+      )
     )
+
     if(!xVariable %in% flowName@parameters@data$name){
       stop("Your X variable is not in the dataset")
     }
@@ -983,7 +991,7 @@ flowPeakDetection = function(
     if(nrow(possiblePeaks8) != 0){
       if(nrow(possiblePeaks8) == 1){
         peakRow <- data.frame(
-          peaks <- c(
+          peaks = c(
             possiblePeaks8$x,
             possiblePeaks8$possiblePairX,
             possiblePeaks8$g1G2Doublet,
@@ -992,7 +1000,7 @@ flowPeakDetection = function(
         )
       }else{
         peakRow <- data.frame(
-          peaks <- c(possiblePeaks8$x, possiblePeaks8$possiblePairX)
+          peaks = c(possiblePeaks8$x, possiblePeaks8$possiblePairX)
         )
       }
       peakRow <- peakRow %>%
@@ -1070,15 +1078,15 @@ flowPeakDetection = function(
       
     }else{
       possiblePeaks8 <- data.frame(
-        x <- NA,
-        y <- NA,
-        cluster <- NA,
-        LL <- NA,
-        UL <- NA,
-        possiblePairX <- NA,
-        possiblePairY <- NA,
-        data <- flowName@description[["GUID"]],
-        propCellsUsed <- NA
+        x = NA,
+        y = NA,
+        cluster = NA,
+        LL = NA,
+        UL = NA,
+        possiblePairX = NA,
+        possiblePairY = NA,
+        data = flowName@description[["GUID"]],
+        propCellsUsed = NA
       )
     }
     if(
@@ -1086,7 +1094,7 @@ flowPeakDetection = function(
       !is.na(possiblePeaks8$propCellsUsed[1])
     ){
       possiblePeaks9 <- possiblePeaks8 %>% dplyr::mutate(
-        data <- flowName@description[["GUID"]]
+        data = flowName@description[["GUID"]]
       )
       appendData <- rbind(
         appendData,
@@ -1131,9 +1139,12 @@ flowPeakDetection = function(
   colnames(logFlow) <- c("Algorithm", "Data", "Success")
   algorithmNum <- 4
   for(k in seq_len(length(flowNameDs))){
-    flowName <- flowCore::read.FCS(
-      paste0(flowDir, "/", flowNameDs[k]), transformation=FALSE
+    xpectr::suppress_mw(
+      flowName <- flowCore::read.FCS(
+        paste0(flowDir, "/", flowNameDs[k]), transformation=FALSE
+      )
     )
+
     if(!xVariable %in% flowName@parameters@data$name){
       stop("Your X variable is not in the dataset")
     }
@@ -1234,7 +1245,7 @@ flowPeakDetection = function(
     if(nrow(possiblePeaks8) != 0){
       if(nrow(possiblePeaks8) == 1){
         peakRow <- data.frame(
-          peaks <- c(
+          peaks = c(
             possiblePeaks8$x,
             possiblePeaks8$possiblePairX,
             possiblePeaks8$g1G2Doublet,
@@ -1243,7 +1254,7 @@ flowPeakDetection = function(
         )
       }else{
         peakRow <- data.frame(
-          peaks <- c(possiblePeaks8$x, possiblePeaks8$possiblePairX)
+          peaks = c(possiblePeaks8$x, possiblePeaks8$possiblePairX)
         )
       }
       peakRow <- peakRow %>%
@@ -1321,24 +1332,24 @@ flowPeakDetection = function(
       possiblePeaks8$propCellsUsed <- propCellsUsed
     }else{
       possiblePeaks8 <- data.frame(
-        x <- NA,
-        y <- NA,
-        cluster <- NA,
-        distToNext <- NA,
-        LL <- NA,
-        UL <- NA,
-        possiblePairX <- NA,
-        possiblePairY <- NA,
-        g3LL <- NA,
-        g3UL <- NA,
-        g4LL <- NA,
-        g4UL <- NA,
-        g1G2Doublet <- NA,
-        g1G2DoubletCount <- NA,
-        g2G2Doublet <- NA,
-        g2G2DoubletCount <- NA,
-        data <- flowName@description[["GUID"]],
-        propCellsUsed <- NA
+        x = NA,
+        y = NA,
+        cluster = NA,
+        distToNext = NA,
+        LL = NA,
+        UL = NA,
+        possiblePairX = NA,
+        possiblePairY = NA,
+        g3LL = NA,
+        g3UL = NA,
+        g4LL = NA,
+        g4UL = NA,
+        g1G2Doublet = NA,
+        g1G2DoubletCount = NA,
+        g2G2Doublet = NA,
+        g2G2DoubletCount = NA,
+        data = flowName@description[["GUID"]],
+        propCellsUsed = NA
       )
     }
     if(
@@ -1346,7 +1357,7 @@ flowPeakDetection = function(
       !is.na(possiblePeaks8$propCellsUsed[1])
     ){
       possiblePeaks9 <- possiblePeaks8 %>% dplyr::mutate(
-        data <- flowName@description[["GUID"]]
+        data = flowName@description[["GUID"]]
       )
       appendData <- rbind(
         appendData,
@@ -1354,8 +1365,8 @@ flowPeakDetection = function(
       )
     }else{
       possiblePeaks9 <- possiblePeaks8 %>% dplyr::mutate(
-        data <- flowName@description[["GUID"]],
-        investigate <- 1
+        data = flowName@description[["GUID"]],
+        investigate = 1
       )
       flaggedData <- rbind(
         flaggedData,
@@ -1391,8 +1402,10 @@ flowPeakDetection = function(
   colnames(logFlow) <- c("Algorithm", "Data", "Success")
   algorithmNum <- 5
   for(k in seq_len(length(flowNameDs))){
-    flowName <- flowCore::read.FCS(
-      paste0(flowDir, "/", flowNameDs[k]), transformation=FALSE
+    xpectr::suppress_mw(
+      flowName <- flowCore::read.FCS(
+        paste0(flowDir, "/", flowNameDs[k]), transformation=FALSE
+      )
     )
     if(!xVariable %in% flowName@parameters@data$name){
       stop("Your X variable is not in the dataset")
@@ -1438,8 +1451,8 @@ flowPeakDetection = function(
       g2ToTestDs3 <- possiblePeaks[g2ToTestDs2, ]
       if(nrow(g2ToTestDs3) == 0){
         g2ToTestDs3 <- data.frame(
-          x <- 0,
-          y <- 0
+          x = 0,
+          y = 0
         )
       }
       #the peak is G2 missing G1
@@ -1452,8 +1465,8 @@ flowPeakDetection = function(
       g1ToTestDs3 <- possiblePeaks[g1ToTestDs2, ]
       if(nrow(g1ToTestDs3) == 0){
         g1ToTestDs3 <- data.frame(
-          x <- 0,
-          y <- 0
+          x = 0,
+          y = 0
         )
       }
       if(g2ToTestDs3$y[1] < g1ToTestDs3$y[1]){
@@ -1515,22 +1528,22 @@ flowPeakDetection = function(
       possiblePeaks7 <- .findTruePeaks(possiblePeaks6, 30, xVarMax)
     }else{
       possiblePeaks7 <- possiblePeaks6 %>% dplyr::mutate(
-        cluster <- 1,
-        distToNext <- 0
+        cluster = 1,
+        distToNext = 0
       )
     }
     if(nrow(possiblePeaks7) == 0){
       peaksFix<-peaksFix %>% tidyr::drop_na()
       maxPeaksFix <- peaksFix[which(max(peaksFix$y) == peaksFix$y), ]
       possiblePeaks7 <- data.frame(
-        x <- maxPeaksFix$x,
-        y <- maxPeaksFix$y,
-        cluster <- 1,
-        distToNext <- 0,
-        LL <- NA,
-        UL <- NA,
-        possiblePairX <- 0,
-        possiblePairY <- 0
+        x = maxPeaksFix$x,
+        y = maxPeaksFix$y,
+        cluster = 1,
+        distToNext = 0,
+        LL = NA,
+        UL = NA,
+        possiblePairX = 0,
+        possiblePairY = 0
       )
     }
     ## Finding Doublets
@@ -1543,8 +1556,8 @@ flowPeakDetection = function(
       15*multiplier
     )
     possiblePeaks9 <- possiblePeaks8 %>% dplyr::mutate(
-      data <- flowName@description[["GUID"]],
-      investigate <- 1
+      data = flowName@description[["GUID"]],
+      investigate = 1
     )
     appendData <- rbind(
       appendData,
@@ -1566,8 +1579,8 @@ flowPeakDetection = function(
   smoothedDs <- zoo::rollmean(data, k=smoothLevel, fill=0)
   ##Create data frame with smoothed data
   ds <- data.frame(
-    x <- histData$breaks,
-    y <- c(0, smoothedDs)
+    x = histData$breaks,
+    y = c(0, smoothedDs)
   )
   return(ds)
 }
@@ -1608,8 +1621,8 @@ flowPeakDetection = function(
   x<-NULL
   ##creating upper and lowed bounds that are read into the function
   findingPairsDs <- ds %>% dplyr::mutate(
-    LL <- x*LL,
-    UL <- x*UL
+    LL = x*LL,
+    UL = x*UL
   )
   ##Finding the peaks that are in the in (LL, UL)
   ##These are the possible peaks that will be considered for their G1/G2 
@@ -1651,10 +1664,10 @@ flowPeakDetection = function(
   ##creating lower bounds and upper bounds for peaks that
   ##could be classified as doublets
   doubletCheckDs2 <- doubletCheckDs %>% dplyr::mutate(
-    g3LL <- x + possiblePairX - g1G2Range,
-    g3UL <- x + possiblePairX + g1G2Range,
-    g4LL <- possiblePairX + possiblePairX - g2G2Range,
-    g4UL <- possiblePairX + possiblePairX + g2G2Range
+    g3LL = x + possiblePairX - g1G2Range,
+    g3UL = x + possiblePairX + g1G2Range,
+    g4LL = possiblePairX + possiblePairX - g2G2Range,
+    g4UL = possiblePairX + possiblePairX + g2G2Range
   )
   ##finding the peaks that are in the G1+G2 range
   doubletCheckDs2$g1G2Doublet <- NA
@@ -1728,17 +1741,19 @@ flowPeakDetection = function(
   flowNameDs <- ds$data
   singlePopUpdated <- c()
   for(k in seq_len(length(flowNameDs))){
-    flowName <- flowCore::read.FCS(
-      paste0(flowDir, "/", flowNameDs[k]), transformation=FALSE
+    xpectr::suppress_mw(
+      flowName <- flowCore::read.FCS(
+        paste0(flowDir, "/", flowNameDs[k]), transformation=FALSE
+      )
     )
     flowData <- .smoothData( flowName, xVariable, 5)
     singlePop01 <- ds %>% dplyr::filter(
       data == flowNameDs[k]
     ) %>% dplyr::rename(
-      xOld <- x,
-      yOld <- y,
-      possiblePairXOld <- possiblePairX,
-      possiblePairYOld <- possiblePairY
+      xOld = x,
+      yOld = y,
+      possiblePairXOld = possiblePairX,
+      possiblePairYOld = possiblePairY
     )
     midPoint <- flowData[
       which(
@@ -1804,10 +1819,10 @@ flowPeakDetection = function(
         xPeak2Smoothed <- xPeak2Smoothed[1]
       }
       singlePop02 <- singlePop01 %>% dplyr::mutate(
-        x <- flowData[xPeak1Smoothed, ]$x,
-        y <- flowData[xPeak1Smoothed, ]$y,
-        possiblePairX <- flowData[xPeak2Smoothed, ]$x,
-        possiblePairY <- flowData[xPeak2Smoothed, ]$y
+        x = flowData[xPeak1Smoothed, ]$x,
+        y = flowData[xPeak1Smoothed, ]$y,
+        possiblePairX = flowData[xPeak2Smoothed, ]$x,
+        possiblePairY = flowData[xPeak2Smoothed, ]$y
       ) %>% dplyr::select(
         data,
         x,
@@ -1825,10 +1840,10 @@ flowPeakDetection = function(
       )
     }else{
       singlePop02 <- singlePop01 %>% dplyr::mutate(
-        x <- flowData[xPeak1Smoothed, ]$x,
-        y <- flowData[xPeak1Smoothed, ]$y,
-        possiblePairX <- possiblePairXOld,
-        possiblePairY <- possiblePairYOld
+        x = flowData[xPeak1Smoothed, ]$x,
+        y = flowData[xPeak1Smoothed, ]$y,
+        possiblePairX = possiblePairXOld,
+        possiblePairY = possiblePairYOld
       ) %>% dplyr::select(
         data,
         x,
@@ -1880,11 +1895,11 @@ flowPeakDetection = function(
     finalPart1 <- singleDs %>% data.frame() %>%
       dplyr::select(-c("g3LL", "g3UL", "g4LL", "g4UL")) %>%
       dplyr::mutate(
-        investigate <- 0,
-        G1 <- x,
-        G1Count <- y,
-        G2 <- possiblePairX,
-        G2Count <- possiblePairY
+        investigate = 0,
+        G1 = x,
+        G1Count = y,
+        G2 = possiblePairX,
+        G2Count = possiblePairY
       )
     finalData <- finalPart1 %>% dplyr::select(
       c(
@@ -1947,7 +1962,7 @@ flowPeakDetection = function(
       )
     }else{
       doubletRSE<-finalData3 %>% dplyr::mutate(
-        residualDoublet <- NA
+        residualDoublet = NA
       )
     }
     if(TRUE %in% grepl("_2", names(finalData3))){
@@ -1962,12 +1977,12 @@ flowPeakDetection = function(
         )
       }else{
         twoPopRSE<-finalData3 %>% dplyr::mutate(
-          residual2Pop <- NA
+          residual2Pop = NA
         )
       }
     }else{
       twoPopRSE<-finalData3 %>% dplyr::mutate(
-        residual2Pop <- NA
+        residual2Pop = NA
       )
     }
     if(TRUE %in% grepl("_3", names(finalData3))){
@@ -1976,7 +1991,7 @@ flowPeakDetection = function(
       )
     }else{
       threePopRSE<-finalData3 %>% dplyr::mutate(
-        residual3Pop <- NA
+        residual3Pop = NA
       )
     }
     finalData4<-sqldf::sqldf(
@@ -2098,11 +2113,11 @@ flowPeakDetection = function(
     finalPart1 <- singleDs %>% data.frame() %>%
       dplyr::select(-c("g3LL", "g3UL", "g4LL", "g4UL")) %>%
       dplyr::mutate(
-        investigate <- 0,
-        G1 <- x,
-        G1Count <- y,
-        G2 <- possiblePairX,
-        G2Count <- possiblePairY
+        investigate = 0,
+        G1 = x,
+        G1Count = y,
+        G2 = possiblePairX,
+        G2Count = possiblePairY
       )
     ##Formatting the data from the other peak algorithms
     finalPart2 <- finishedDs %>% data.frame() %>%
@@ -2120,11 +2135,11 @@ flowPeakDetection = function(
         )
       ) %>%
       dplyr::mutate(
-        investigate <- 0,
-        G1 <- x,
-        G1Count <- y,
-        G2 <- possiblePairX,
-        G2Count <- possiblePairY
+        investigate = 0,
+        G1 = x,
+        G1Count = y,
+        G2 = possiblePairX,
+        G2Count = possiblePairY
       )
     
     ##Merging the two datasets
@@ -2361,11 +2376,11 @@ flowPeakDetection = function(
         )
       ) %>%
       dplyr::mutate(
-        investigate <- 0,
-        G1 <- x,
-        G1Count <- y,
-        G2 <- possiblePairX,
-        G2Count <- possiblePairY
+        investigate = 0,
+        G1 = x,
+        G1Count = y,
+        G2 = possiblePairX,
+        G2Count = possiblePairY
       )
     finalPart2<-investigateDs %>% data.frame() %>%
       dplyr::select(
@@ -2381,10 +2396,10 @@ flowPeakDetection = function(
         )
       ) %>%
       dplyr::mutate(
-        G1 <- x,
-        G1Count <- y,
-        G2 <- possiblePairX,
-        G2Count <- possiblePairY
+        G1 = x,
+        G1Count = y,
+        G2 = possiblePairX,
+        G2Count = possiblePairY
       )
     ##Merging the two datasets
     finalData<-rbind(
@@ -2700,12 +2715,12 @@ flowPeakDetection = function(
         )
       }else{
         twoPopRSE<-finalData3 %>% dplyr::mutate(
-          residual2Pop <- NA
+          residual2Pop = NA
         )
       }
     }else{
       twoPopRSE<-finalData3 %>% dplyr::mutate(
-        residual2Pop <- NA
+        residual2Pop = NA
       )
     }  
     if(TRUE %in% grepl("_3", names(finalData3))){
@@ -2714,7 +2729,7 @@ flowPeakDetection = function(
       )
     }else{
       threePopRSE<-finalData3 %>% dplyr::mutate(
-        residual3Pop <- NA
+        residual3Pop = NA
       )
     }
     finalData4<-sqldf::sqldf(
@@ -3146,8 +3161,10 @@ flowPeakDetection = function(
     "residual"
   )
   for(k in seq_len(length(flowNameDs))){
-    flowName <- flowCore::read.FCS(
-      paste0(flowDir, "/", flowNameDs[k]), transformation=FALSE
+    xpectr::suppress_mw(
+      flowName <- flowCore::read.FCS(
+        paste0(flowDir, "/", flowNameDs[k]), transformation=FALSE
+      )
     )
     flowData <- .smoothData( flowName, xVariable, 5)
     flowDataMeans <- modelData02%>% dplyr::filter(
@@ -3298,6 +3315,9 @@ flowPeakDetection = function(
           ) == min(abs(g1LeftFlowData$y-flowDataMeans$sdG1Count))
         ),
       ]
+      if(nrow(leftPeak1)>1){
+        leftPeak1 <- leftPeak1[1, ]
+      }
       rightPeak1 <- g1RightFlowData[
         which(
           abs(
@@ -3305,6 +3325,9 @@ flowPeakDetection = function(
           ) == min(abs(g1RightFlowData$y-flowDataMeans$sdG1Count))
         ),
       ]
+      if(nrow(rightPeak1)>1){
+        rightPeak1 <- rightPeak1[1, ]
+      }
       flowDataMeans01 <- flowDataMeans %>% dplyr::mutate(
         g1Mean=G1_1,
         g2Mean=G2_1,
@@ -3399,6 +3422,7 @@ flowPeakDetection = function(
     sdG1G2Count=`doublet G1+G2 count`*0.6,
     sdG2G2Count=`doublet G2+G2 count`*0.6
   )
+  
   residualDoubletDs <- data.frame(
     matrix(nrow=0, ncol=26)
   )
@@ -3431,8 +3455,10 @@ flowPeakDetection = function(
     "residualDoublet"
   )
   for(k in seq_len(length(flowNameDs))){
-    flowName <- flowCore::read.FCS(
-      paste0(flowDir, "/", flowNameDs[k]), transformation=FALSE
+    xpectr::suppress_mw(
+      flowName <- flowCore::read.FCS(
+        paste0(flowDir, "/", flowNameDs[k]), transformation=FALSE
+      )
     )
     flowData <- .smoothData( flowName, xVariable, 5)
     flowDataMeans <- modelData02%>% dplyr::filter(
@@ -3690,6 +3716,10 @@ flowPeakDetection = function(
             ]
           )
         )
+        
+        if(flowDataMeans01$G1G2Mean == flowDataMeans01$G2G2Mean){
+          flowDataMeans01$G2G2Mean = 0
+        }
         g1Mean <- flowDataMeans01$g1Mean
         g2Mean <- flowDataMeans01$g2Mean
         G1G2Mean <- flowDataMeans01$G1G2Mean
@@ -3698,6 +3728,8 @@ flowPeakDetection = function(
         g2SD <- flowDataMeans01$g2SD
         G1g2SD <- flowDataMeans01$G1g2SD
         G2g2SD <- flowDataMeans01$G2g2SD
+        
+        
         xpectr::suppress_mw(
           singlePopNLS <- nls(
             formula = y ~ (N1/(sqrt(2*pi) * g1SD) * 
@@ -3815,10 +3847,12 @@ flowPeakDetection = function(
     }else{
       #G1 standard deviation 
       G1LeftFlowData <- flowData[
-        seq_len(which(flowData$x == flowDataMeans$G1_1)), ]
+        seq_len(which(flowData$x == flowDataMeans$G1_1)-1), ]
       G1RightFlowData <- flowData[
-        which(flowData$x == flowDataMeans$G1_1):nrow(flowData),
+        (which(flowData$x == flowDataMeans$G1_1)+1):nrow(flowData),
       ]
+      
+      
       leftPeak1 <- G1LeftFlowData[
         which(
           abs(
@@ -3863,10 +3897,10 @@ flowPeakDetection = function(
       }
       doubletG1G2LeftFlowData <- flowData[
         which(flowData$x == midPointDoublet$x):
-          which(flowData$x == flowDataMeans$`doublet G1+G2`),
+          (which(flowData$x == flowDataMeans$`doublet G1+G2`)-1),
       ]
       doubletG1G2RightFlowData <- flowData[
-        which(flowData$x == flowDataMeans$`doublet G1+G2`):
+        (which(flowData$x == flowDataMeans$`doublet G1+G2`)+1):
           nrow(flowData),
       ]
       doubletG1G2Left <- doubletG1G2LeftFlowData[
@@ -3924,10 +3958,10 @@ flowPeakDetection = function(
         }
         doubletG1G2LeftFlowData <- flowData[
           which(flowData$x == midPointDoublet2$x):
-            which(flowData$x == flowDataMeans$`doublet G2+G2`), 
+            (which(flowData$x == flowDataMeans$`doublet G2+G2`)-1), 
         ]
         doubletG2G2RightFlowData <- flowData[
-          which(flowData$x == flowDataMeans$`doublet G2+G2`):
+          (which(flowData$x == flowDataMeans$`doublet G2+G2`)+1):
             nrow(flowData),
         ]
         doubletG2G2Left <- doubletG1G2LeftFlowData[
@@ -4012,6 +4046,10 @@ flowPeakDetection = function(
             ]
           )
         )
+        
+        if(flowDataMeans01$G1G2Mean == flowDataMeans01$G2G2Mean){
+          flowDataMeans01$G2G2Mean = 0
+        }
         g1Mean <- flowDataMeans01$g1Mean
         G1G2Mean <- flowDataMeans01$G1G2Mean
         G2G2Mean <- flowDataMeans01$G2G2Mean
@@ -4082,6 +4120,7 @@ flowPeakDetection = function(
           ),
           numDoublet2=0
         )
+        
         g1Mean <- flowDataMeans01$g1Mean
         G1G2Mean <- flowDataMeans01$G1G2Mean
         g1SD <- flowDataMeans01$g1SD
@@ -4134,6 +4173,7 @@ flowPeakDetection = function(
   }
   return(residualDoubletDs)
 }
+
 
 ## popConfidence2Pop
 .popConfidence2Pop = function(flowDir, ds, xVariable, saveGraph){
@@ -4193,8 +4233,10 @@ flowPeakDetection = function(
     "residual"
   )
   for(k in seq_len(length(flowNameDs))){
-    flowName <- flowCore::read.FCS(
-      paste0(flowDir, "/", flowNameDs[k]), transformation=FALSE
+    xpectr::suppress_mw(
+      flowName <- flowCore::read.FCS(
+        paste0(flowDir, "/", flowNameDs[k]), transformation=FALSE
+      )
     )
     flowData <- .smoothData( flowName, xVariable, 5)
     flowDataMeans <- modelData02%>% dplyr::filter(
@@ -4639,8 +4681,10 @@ flowPeakDetection = function(
   )
   
   for(k in seq_len(length(flowNameDs))){
-    flowName <- flowCore::read.FCS(
-      paste0(flowDir, "/", flowNameDs[k]), transformation=FALSE
+    xpectr::suppress_mw(
+      flowName <- flowCore::read.FCS(
+        paste0(flowDir, "/", flowNameDs[k]), transformation=FALSE
+      )
     )
     flowData <- .smoothData( flowName, xVariable, 5)
     flowDataMeans <- modelData02%>% dplyr::filter(
