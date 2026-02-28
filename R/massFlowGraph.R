@@ -14,11 +14,7 @@
 #' `flowPeakDetection()` that corresponds to the gated data (string file path)
 #' @param fileName To label the PDF file produced internally by `flowLineGraph()` (string)
 #' 
-#' @import ggplot2
-#' @import tidyverse
-#' @import gridExtra
-#' @import dplyr
-#' @import flowTime
+#' (no import tags needed)
 #' 
 #' @return description
 #' @export

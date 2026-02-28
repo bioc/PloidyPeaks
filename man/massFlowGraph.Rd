@@ -16,7 +16,9 @@ will prompt the user to select a folder (string file path)}
 \item{filePath}{The directory of the output .csv file from
 \code{flowPeakDetection()} that corresponds to the gated data (string file path)}
 
-\item{fileName}{To label the PDF file produced internally by \code{flowLineGraph()} (string)}
+\item{fileName}{To label the PDF file produced internally by \code{flowLineGraph()} (string)
+
+(no import tags needed)}
 }
 \value{
 description

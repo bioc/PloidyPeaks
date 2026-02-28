@@ -19,11 +19,9 @@
 #'
 #' @return A .fcs of the gated data and plots of gated data
 #' 
-#' @import patchwork
-#' @import tcltk
-#' @import flowTime
 #' @rawNamespace import(ggplot2)
 #' @importFrom ggcyto autoplot ggcyto
+#' @importFrom tcltk tclvalue tkchooseDirectory
 #' 
 #' @export
 #'
@@ -148,7 +146,9 @@ rectGateFlowFrame = function(
     )
     print( paste0(numCellsGatedOut, "% of the cells were gated out") )
     ##Creating directories to save the data
-    setwd(rawDir)
+    if (interactive()){
+      setwd(rawDir)
+    }
     subDir <- "gated_data"
     dir.create(file.path(dirname(rawDir), subDir), showWarnings=FALSE)
     ##Saving the gated data into a folder

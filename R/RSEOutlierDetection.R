@@ -17,13 +17,10 @@
 #' @param fileName To label the PDF file of plotted outlier samples (string)
 #' @param alpha The top percentage used to identify outliers (i.e 0.05)
 #' 
-#' @import ggplot2
-#' @import tidyverse
-#' @import gridExtra
-#' @import cowplot
-#' @import moments
-#' @import dplyr
-#' @import flowTime
+#' @importFrom ggplot2 ggplot aes geom_vline annotate ggsave labs scale_linetype_manual stat_function theme_bw guide_legend
+#' @importFrom dplyr between
+#' @importFrom moments skewness
+#' @importFrom magrittr %>%
 #' 
 #' @return a .csv with an added column for outlier RSE about each sample, a
 #' histogram to show the distribution of RSE values, and a PDF file of plotted

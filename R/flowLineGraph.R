@@ -35,8 +35,8 @@
 #'  this is only used in the `RSEOutlierDetection()` function and should not be
 #'  utilized if strictly using the main function)
 #' 
-#' @import tcltk
-#' @import ggplot2
+#' @importFrom tcltk tclvalue tkchooseDirectory
+#' @importFrom ggplot2 ggplot aes geom_line scale_color_manual theme_bw xlab ylab
 #' @import vctrs
 #' @import gridExtra
 #' @import cowplot

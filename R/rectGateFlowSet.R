@@ -19,11 +19,10 @@
 #' @return A set of .fcs of the gated data, plots of gated data, and a .csv 
 #' containing information on how percentage of cells gated out
 #' 
-#' @import patchwork
-#' @import tcltk
-#' @import flowTime
 #' @rawNamespace import(ggplot2)
 #' @importFrom ggcyto autoplot ggcyto
+#' @importFrom tcltk tclvalue tkchooseDirectory
+#' @importFrom magrittr %>%
 #'
 #' @export
 #'
@@ -102,7 +101,9 @@ rectGateFlowSet = function(
     total <- length(flowSet)
     #Create progress bar
     pb <- txtProgressBar(min=0, max=total, style=3)
-    setwd(rawDir)
+    if (interactive()){
+      setwd(rawDir)
+    }
     subDir <- "gated_data"
     dir.create(file.path(dirname(rawDir), subDir), showWarnings=FALSE)
     if(savePlot == TRUE){

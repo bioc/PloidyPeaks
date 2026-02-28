@@ -11,7 +11,7 @@
 #' @param numSubPop the number of subpopulations the user wants
 #'  the algorithm to identify (i.e., 2, 3; numerical)
 #'  
-#' @import flowTime
+#' @importFrom magrittr %>%
 #'  
 #' @return a .csv with information about each sample and nls graphs
 #' @export
@@ -578,7 +578,9 @@ peakCorrection = function(
     }
     
     ##Creating a folder called analysis where the dataset will be saved
-    setwd(flowDir)
+    if (interactive()){
+      setwd(rawDir)
+    }
     subDir <- "analysis"
     dir.create(file.path(dirname(getwd()), subDir), showWarnings=FALSE)
     write.csv(
@@ -811,7 +813,9 @@ peakCorrection = function(
     }
     
     ##Creating a folder called analysis where the dataset will be saved
-    setwd(flowDir)
+    if (interactive()){
+      setwd(rawDir)
+    }
     subDir <- "analysis"
     dir.create(file.path(dirname(getwd()), subDir), showWarnings = FALSE)
     write.csv(
@@ -1055,7 +1059,9 @@ peakCorrection = function(
     }
     
     ##Creating a folder called analysis where the dataset will be saved
-    setwd(flowDir)
+    if (interactive()){
+      setwd(rawDir)
+    }
     subDir <- "analysis"
     dir.create(file.path(dirname(getwd()), subDir), showWarnings = FALSE)
     write.csv(
@@ -1273,7 +1279,9 @@ peakCorrection = function(
     }
     
     ##Creating a folder called analysis where the dataset will be saved
-    setwd(flowDir)
+    if (interactive()){
+      setwd(rawDir)
+    }
     subDir <- "analysis"
     dir.create(file.path(dirname(getwd()), subDir), showWarnings = FALSE)
     write.csv(
@@ -1521,7 +1529,9 @@ peakCorrection = function(
     }
     
     ##Creating a folder called analysis where the dataset will be saved
-    setwd(flowDir)
+    if (interactive()){
+      setwd(rawDir)
+    }
     subDir <- "analysis"
     dir.create(file.path(dirname(getwd()), subDir), showWarnings=FALSE)
     write.csv(
