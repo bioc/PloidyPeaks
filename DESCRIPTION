@@ -1,6 +1,6 @@
 Package: PloidyPeaks
 Title: Peak Detection Algorithm For Flow Cytometry Data
-Version: 0.99.12
+Version: 0.99.13
 Authors@R: c(
     person("Margot", "Henry", email="margothenry@live.com", role = c("aut", "ctb")),
     person("Aleeza", "Gerstein", email="aleeza.gerstein@umanitoba.ca", role=c("aut", "ths")),
@@ -12,7 +12,10 @@ Description: PloidyPeaks is a package to quantify population-level genome size v
 	The workflow is separated into three parts: 1) gating and 2) peak detection, 3) dataset output.
 	Built-in visualizations options are included throughout.
 biocViews: FlowCytometry, PeakDetection, Visualization, OneChannel, MultipleComparison
-Imports: AzureRMR,
+Depends:
+    ggplot2
+Imports:
+    AzureRMR,
     AzureStor,
     BiocFileCache,
     cowplot,
@@ -42,7 +45,7 @@ Imports: AzureRMR,
 License: GPL-3
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.2
+RoxygenNote: 7.3.3
 Suggests: 
     rmarkdown,
     knitr,

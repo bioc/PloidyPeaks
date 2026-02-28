@@ -22,6 +22,8 @@
 #' @import patchwork
 #' @import tcltk
 #' @import flowTime
+#' @rawNamespace import(ggplot2)
+#' @importFrom ggcyto autoplot ggcyto
 #' 
 #' @export
 #'
@@ -75,7 +77,7 @@ rectGateFlowFrame = function(
     yMaxValue = 900000,
     savePlot = TRUE
 ){
-    ##Removing NOTE 'no visible binding for global variable'
+  ##Removing NOTE 'no visible binding for global variable'
     rectGate<-NULL
     if(is.na(rawDir)){
         getwd()

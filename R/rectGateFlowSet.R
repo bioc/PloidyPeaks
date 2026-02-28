@@ -18,9 +18,12 @@
 #'
 #' @return A set of .fcs of the gated data, plots of gated data, and a .csv 
 #' containing information on how percentage of cells gated out
+#' 
 #' @import patchwork
 #' @import tcltk
 #' @import flowTime
+#' @rawNamespace import(ggplot2)
+#' @importFrom ggcyto autoplot ggcyto
 #'
 #' @export
 #'
@@ -79,7 +82,7 @@ rectGateFlowSet = function(
     yMaxValue = 900000,
     savePlot = TRUE
 ){
-    ##Removing NOTE 'no visible binding for global variable'
+  ##Removing NOTE 'no visible binding for global variable'
     rectGate<-NULL
     if(is.na(rawDir)){
         getwd()
