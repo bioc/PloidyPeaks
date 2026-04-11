@@ -23,6 +23,7 @@
 #' @importFrom ggcyto autoplot ggcyto
 #' @importFrom tcltk tclvalue tkchooseDirectory
 #' @importFrom magrittr %>%
+#' @import patchwork
 #'
 #' @export
 #'

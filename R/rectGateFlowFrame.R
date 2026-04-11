@@ -22,6 +22,7 @@
 #' @rawNamespace import(ggplot2)
 #' @importFrom ggcyto autoplot ggcyto
 #' @importFrom tcltk tclvalue tkchooseDirectory
+#' @import patchwork
 #' 
 #' @export
 #'

@@ -18,7 +18,7 @@
 #' @param alpha The top percentage used to identify outliers (i.e 0.05)
 #' 
 #' @importFrom ggplot2 ggplot aes geom_vline annotate ggsave labs scale_linetype_manual stat_function theme_bw guide_legend
-#' @importFrom dplyr between
+#' @importFrom data.table between
 #' @importFrom moments skewness
 #' @importFrom magrittr %>%
 #' 
@@ -94,7 +94,7 @@ RSEOutlierDetection = function(
   ##ensure alpha is between 0 and 1
   if(!is.numeric(alpha)){
     stop("Your alpha is not numeric")
-  }else if(!between(alpha, 0, 1)){
+  }else if(!data.table::between(alpha, 0, 1)){
     stop("Your alpha is not a decimal between 0 and 1")
   }
   ##read in data

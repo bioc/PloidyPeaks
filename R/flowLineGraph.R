@@ -39,7 +39,6 @@
 #' @importFrom ggplot2 ggplot aes geom_line scale_color_manual theme_bw xlab ylab
 #' @import vctrs
 #' @import gridExtra
-#' @import cowplot
 #' @import flowTime
 #' 
 #' @return either a single line graph for the samples or a PDF file of samples
